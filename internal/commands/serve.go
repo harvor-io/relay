@@ -12,6 +12,7 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/harvor-io/relay/internal/config"
+	"github.com/harvor-io/relay/internal/database"
 	"github.com/harvor-io/relay/internal/handlers"
 	"github.com/harvor-io/relay/internal/middleware"
 )
@@ -24,6 +25,24 @@ func ServeCommand() *cli.Command {
 		Description: "Serve the Relay HTTP API",
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			cfg := config.New()
+
+			db, err := database.Open(ctx, cfg)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = db.Close() }()
+
+			migrator, err := database.NewMigrator(db, cfg.DatabaseDriver)
+			if err != nil {
+				return err
+			}
+			applied, err := migrator.Up(ctx)
+			if err != nil {
+				return err
+			}
+			if applied > 0 {
+				log.Printf("serve: applied %d migration(s)", applied)
+			}
 
 			r := chi.NewRouter()
 			r.Use(middleware.RequestID)

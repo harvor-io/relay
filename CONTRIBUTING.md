@@ -32,16 +32,42 @@ the HTTP API.
 | Path | Purpose |
 |---|---|
 | [cmd/relay/](cmd/relay/) | CLI entrypoint and subcommand wiring |
-| [internal/commands/](internal/commands/) | `serve` command: router setup and HTTP server |
+| [internal/commands/](internal/commands/) | `serve` and `migrate` commands |
 | [internal/config/](internal/config/) | Runtime configuration, loaded from the environment |
 | [internal/handlers/](internal/handlers/) | HTTP handlers (`chi` router, `chi/render` responses) |
 | [internal/middleware/](internal/middleware/) | HTTP middleware (e.g. UUIDv7 request IDs) |
+| [internal/models/](internal/models/) | Core domain entities (`Source`, `Destination`, `Envelope`) |
+| [internal/database/](internal/database/) | Connection setup (`sqlite`, `libsql` sub-packages) and the migration runner (`goose`) |
+| [internal/repositories/](internal/repositories/) | Persistence interfaces and their SQLite implementations |
+| [migrations/](migrations/) | SQL migration files, embedded with `embed.FS`, one sub-directory per engine |
 | [static/](static/) | OpenAPI spec, embedded into the binary with `embed.FS` |
 
 ### Configuration
 
-Configuration is read from environment variables. Currently the only setting
-is `PORT` (default `8080`).
+Configuration is read from environment variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `8080` | HTTP listen port |
+| `DATABASE_DRIVER` | `sqlite` | Database driver: `sqlite` (embedded, pure-Go) or `libsql` (hosted libSQL / Turso) |
+| `DATABASE_URL` | `file:relay.db` | Data source: a local `file:` DSN or a hosted libSQL URL (e.g. Turso `libsql://…`) |
+| `DATABASE_AUTH_TOKEN` | _(empty)_ | Auth token for a hosted libSQL database; unused for local files |
+
+### Database migrations
+
+Schema migrations are [goose](https://github.com/pressly/goose) SQL files under
+[migrations/](migrations/), grouped by engine (`migrations/sqlite/` is shared by
+the `sqlite` and `libsql` drivers). They are embedded into the binary.
+
+```sh
+go run ./cmd/relay migrate status   # list migrations and their state
+go run ./cmd/relay migrate up       # apply all pending migrations
+go run ./cmd/relay migrate down     # roll back the most recent migration
+```
+
+`relay serve` also applies pending migrations on startup. To add one, create
+the next `NNNNN_name.sql` file in the engine directory with `-- +goose Up` and
+`-- +goose Down` sections.
 
 ## Running locally
 

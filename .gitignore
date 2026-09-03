@@ -35,6 +35,11 @@ compose.override.yml
 /dist/
 /relay
 
+# Local SQLite database (default DATABASE_URL)
+relay.db
+relay.db-shm
+relay.db-wal
+
 # Editor/IDE
 # .idea/
 # .vscode/
