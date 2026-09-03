@@ -1,0 +1,15 @@
+get:
+  operationId: getHealth
+  summary: Check service health
+  description: Reports that the process can serve HTTP.
+  tags:
+    - Health
+  # Public: infrastructure probes reach this without a token.
+  security: []
+  responses:
+    "200":
+      description: The service is healthy.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/HealthStatus"

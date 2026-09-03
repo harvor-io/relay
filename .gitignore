@@ -27,6 +27,14 @@ go.work.sum
 # env file
 .env
 
+# Local compose override
+compose.override.yml
+
+# Build output
+/bin/
+/dist/
+/relay
+
 # Editor/IDE
 # .idea/
 # .vscode/

@@ -1,0 +1,18 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    command: ["relay", "serve"]
+    environment:
+      PORT: "8080"
+    expose:
+      - "8080"
+    healthcheck:
+      # 127.0.0.1, not localhost: localhost can resolve to ::1 first and an
+      # IPv4-only listener then fails the probe.
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/api/v1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

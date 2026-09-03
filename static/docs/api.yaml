@@ -1,0 +1,16 @@
+openapi: 3.0.3
+info:
+  title: Relay API
+  description: >-
+    API for the Relay event routing service. The service is currently an
+    HTTP skeleton; endpoints are being built incrementally.
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+tags:
+  - name: Health
+    description: Service availability checks.
+paths:
+  /healthz:
+    $ref: "./paths/health/healthz.yml"

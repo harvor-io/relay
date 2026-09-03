@@ -1,0 +1,8 @@
+# Copy to compose.override.yml for local development.
+#
+# Publishes the container's port 8080 on a host port so you can curl the API
+# directly. Change the left-hand number to use a different host port.
+services:
+  app:
+    ports:
+      - "8080:8080"
