@@ -15,6 +15,8 @@ import (
 	"github.com/harvor-io/relay/internal/database"
 	"github.com/harvor-io/relay/internal/handlers"
 	"github.com/harvor-io/relay/internal/middleware"
+	sqliterepo "github.com/harvor-io/relay/internal/repositories/sqlite"
+	"github.com/harvor-io/relay/internal/services"
 )
 
 // ServeCommand starts the HTTP API.
@@ -44,6 +46,8 @@ func ServeCommand() *cli.Command {
 				log.Printf("serve: applied %d migration(s)", applied)
 			}
 
+			sourceService := services.NewSourceService(sqliterepo.NewSourceRepository(db))
+
 			r := chi.NewRouter()
 			r.Use(middleware.RequestID)
 			r.Use(chimiddleware.Recoverer)
@@ -52,6 +56,7 @@ func ServeCommand() *cli.Command {
 				// Health stays public so infrastructure probes (Docker,
 				// load balancers) can reach it without a token.
 				handlers.NewHealthHandler().RegisterRoutes(api)
+				handlers.NewSourceHandler(sourceService).RegisterRoutes(api)
 			})
 
 			docsHandler, err := handlers.NewDocsHandler()

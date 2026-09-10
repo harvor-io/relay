@@ -1,0 +1,56 @@
+get:
+  operationId: listSources
+  summary: List sources
+  description: Returns every registered source, ordered by name.
+  tags:
+    - Sources
+  responses:
+    "200":
+      description: The list of sources.
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "../../schemas.yml#/components/schemas/Source"
+
+post:
+  operationId: createSource
+  summary: Register a source
+  description: >-
+    Creates a new source. Surrounding whitespace is trimmed from every field;
+    a description that is empty after trimming is stored as null. When no slug
+    is supplied, a unique URL-safe slug is derived from the name.
+  tags:
+    - Sources
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../../schemas.yml#/components/schemas/NewSource"
+  responses:
+    "201":
+      description: The source was created.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Source"
+    "400":
+      description: The request body is not valid JSON.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "409":
+      description: The requested slug is already in use.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "422":
+      description: The request body failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"

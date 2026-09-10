@@ -22,6 +22,11 @@ type Source struct {
 	// dashboards, and configuration.
 	Name string
 
+	// Slug is the URL-safe identifier for the Source, unique across all
+	// Sources. It is derived from Name at creation time when one is not
+	// supplied explicitly, and is stable thereafter.
+	Slug string
+
 	// Description is an optional free-form explanation of what the Source is
 	// and why it exists. It is nil when no description has been provided.
 	Description *string

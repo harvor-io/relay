@@ -12,17 +12,22 @@ import (
 // relay ingests data from.
 type SourceRepository interface {
 	// Create persists a new Source. Implementations assign the ID and
-	// timestamps if they are not already set, mutating the passed value.
+	// timestamps if they are not already set, mutating the passed value. It
+	// returns ErrConflict if the Source's slug is already taken.
 	Create(ctx context.Context, source *models.Source) error
 
 	// Get returns the Source with the given ID, or ErrNotFound.
 	Get(ctx context.Context, id uuid.UUID) (*models.Source, error)
 
+	// GetBySlug returns the Source with the given slug, or ErrNotFound.
+	GetBySlug(ctx context.Context, slug string) (*models.Source, error)
+
 	// List returns every Source, ordered by name.
 	List(ctx context.Context) ([]models.Source, error)
 
 	// Update overwrites the mutable fields of an existing Source and refreshes
-	// its UpdatedAt timestamp. It returns ErrNotFound if no such Source exists.
+	// its UpdatedAt timestamp. It returns ErrNotFound if no such Source exists,
+	// or ErrConflict if the new slug is already taken by another Source.
 	Update(ctx context.Context, source *models.Source) error
 
 	// Delete removes the Source with the given ID, returning ErrNotFound if it

@@ -27,7 +27,7 @@ func NewSourceRepository(db *sql.DB) *SourceRepository {
 	return &SourceRepository{db: db}
 }
 
-const sourceColumns = `id, name, description, created_at, updated_at`
+const sourceColumns = `id, name, slug, description, created_at, updated_at`
 
 // Create inserts a new source, assigning a UUIDv7 and timestamps when unset.
 func (r *SourceRepository) Create(ctx context.Context, source *models.Source) error {
@@ -45,14 +45,18 @@ func (r *SourceRepository) Create(ctx context.Context, source *models.Source) er
 	source.UpdatedAt = now
 
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO sources (`+sourceColumns+`) VALUES (?, ?, ?, ?, ?)`,
+		`INSERT INTO sources (`+sourceColumns+`) VALUES (?, ?, ?, ?, ?, ?)`,
 		source.ID.String(),
 		source.Name,
+		source.Slug,
 		sqlitedb.NullString(source.Description),
 		source.CreatedAt.Format(sqlitedb.TimeLayout),
 		source.UpdatedAt.Format(sqlitedb.TimeLayout),
 	)
 	if err != nil {
+		if sqlitedb.IsUniqueViolation(err) {
+			return repositories.ErrConflict
+		}
 		return fmt.Errorf("sqlite: insert source: %w", err)
 	}
 	return nil
@@ -62,6 +66,13 @@ func (r *SourceRepository) Create(ctx context.Context, source *models.Source) er
 func (r *SourceRepository) Get(ctx context.Context, id uuid.UUID) (*models.Source, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT `+sourceColumns+` FROM sources WHERE id = ?`, id.String())
+	return scanSource(row)
+}
+
+// GetBySlug returns a single source by slug.
+func (r *SourceRepository) GetBySlug(ctx context.Context, slug string) (*models.Source, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT `+sourceColumns+` FROM sources WHERE slug = ?`, slug)
 	return scanSource(row)
 }
 
@@ -92,13 +103,17 @@ func (r *SourceRepository) List(ctx context.Context) ([]models.Source, error) {
 func (r *SourceRepository) Update(ctx context.Context, source *models.Source) error {
 	source.UpdatedAt = time.Now().UTC()
 	res, err := r.db.ExecContext(ctx,
-		`UPDATE sources SET name = ?, description = ?, updated_at = ? WHERE id = ?`,
+		`UPDATE sources SET name = ?, slug = ?, description = ?, updated_at = ? WHERE id = ?`,
 		source.Name,
+		source.Slug,
 		sqlitedb.NullString(source.Description),
 		source.UpdatedAt.Format(sqlitedb.TimeLayout),
 		source.ID.String(),
 	)
 	if err != nil {
+		if sqlitedb.IsUniqueViolation(err) {
+			return repositories.ErrConflict
+		}
 		return fmt.Errorf("sqlite: update source: %w", err)
 	}
 	return sqlitedb.Affected(res)
@@ -120,7 +135,7 @@ func scanSource(s sqlitedb.Scanner) (*models.Source, error) {
 		description          sql.NullString
 		createdAt, updatedAt string
 	)
-	if err := s.Scan(&idStr, &source.Name, &description, &createdAt, &updatedAt); err != nil {
+	if err := s.Scan(&idStr, &source.Name, &source.Slug, &description, &createdAt, &updatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, repositories.ErrNotFound
 		}

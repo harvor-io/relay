@@ -2,8 +2,12 @@ package sqlite
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
+
+	sqlite3 "modernc.org/sqlite"
+	sqlite3lib "modernc.org/sqlite/lib"
 
 	"github.com/harvor-io/relay/internal/repositories"
 )
@@ -61,4 +65,19 @@ func Affected(res sql.Result) error {
 		return repositories.ErrNotFound
 	}
 	return nil
+}
+
+// IsUniqueViolation reports whether err is a SQLite UNIQUE or PRIMARY KEY
+// constraint failure, which a repository maps to repositories.ErrConflict.
+func IsUniqueViolation(err error) bool {
+	var serr *sqlite3.Error
+	if !errors.As(err, &serr) {
+		return false
+	}
+	switch serr.Code() {
+	case sqlite3lib.SQLITE_CONSTRAINT_UNIQUE, sqlite3lib.SQLITE_CONSTRAINT_PRIMARYKEY:
+		return true
+	default:
+		return false
+	}
 }

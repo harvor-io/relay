@@ -10,6 +10,65 @@ components:
           description: Human-readable process status.
           example: OK
 
+    Source:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - description
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Stable unique identifier (UUIDv7).
+          example: 0192a5c8-1f4e-7c3a-9b2d-3e4f5a6b7c8d
+        name:
+          type: string
+          description: Human-readable label for the source.
+          example: orders
+        slug:
+          type: string
+          description: URL-safe identifier, unique across sources.
+          example: orders
+        description:
+          type: string
+          nullable: true
+          description: Optional free-form explanation, or null when unset.
+          example: Order events from the storefront.
+        created_at:
+          type: string
+          format: date-time
+          description: When the source was registered.
+        updated_at:
+          type: string
+          format: date-time
+          description: When the source was last modified.
+
+    NewSource:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Human-readable label for the source. Required.
+          example: orders
+        slug:
+          type: string
+          description: >-
+            Optional URL-safe identifier (lowercase letters, digits, hyphens,
+            underscores). When omitted, a unique slug is derived from the name.
+            When supplied, it must be URL-safe and not already in use.
+          example: orders
+        description:
+          type: string
+          nullable: true
+          description: Optional free-form explanation.
+          example: Order events from the storefront.
+
     Error:
       type: object
       required:

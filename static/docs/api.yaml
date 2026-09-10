@@ -11,6 +11,12 @@ servers:
 tags:
   - name: Health
     description: Service availability checks.
+  - name: Sources
+    description: Origins that relay ingests data from.
 paths:
   /healthz:
     $ref: "./paths/health/healthz.yml"
+  /sources:
+    $ref: "./paths/sources/sources.yml"
+  /sources/{id}:
+    $ref: "./paths/sources/source.yml"

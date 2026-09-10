@@ -7,6 +7,11 @@ services:
     command: ["relay", "serve"]
     environment:
       PORT: "8080"
+      # Persist the embedded SQLite database on the named volume mounted at the
+      # container's working directory (/app).
+      DATABASE_URL: "file:/app/relay.db"
+    volumes:
+      - relay-data:/app
     expose:
       - "8080"
     healthcheck:
@@ -16,3 +21,6 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+volumes:
+  relay-data:

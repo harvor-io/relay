@@ -28,6 +28,12 @@ RUN apk add --no-cache ca-certificates \
 
 COPY --from=builder /go/bin/relay /usr/local/bin/relay
 
+# A writable working directory for the non-root user. relay resolves any
+# relative paths (and, by default, its SQLite file) against this directory;
+# mount a volume here to persist that state.
+RUN mkdir -p /app && chown 10001 /app
+WORKDIR /app
+
 USER 10001
 
 EXPOSE 8080
