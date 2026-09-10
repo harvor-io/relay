@@ -52,6 +52,8 @@ Configuration is read from environment variables:
 | `DATABASE_DRIVER` | `sqlite` | Database driver: `sqlite` (embedded, pure-Go) or `libsql` (hosted libSQL / Turso) |
 | `DATABASE_URL` | `file:relay.db` | Data source: a local `file:` DSN or a hosted libSQL URL (e.g. Turso `libsql://…`) |
 | `DATABASE_AUTH_TOKEN` | _(empty)_ | Auth token for a hosted libSQL database; unused for local files |
+| `LOG_LEVEL` | `info` | Minimum structured-log severity: `debug`, `info`, `warn`, or `error` |
+| `LOG_FORMAT` | `json` | Log handler: `json` (machine-readable) or `text` (human-readable) |
 
 ### Database migrations
 

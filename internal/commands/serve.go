@@ -4,8 +4,12 @@ package commands
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -14,10 +18,15 @@ import (
 	"github.com/harvor-io/relay/internal/config"
 	"github.com/harvor-io/relay/internal/database"
 	"github.com/harvor-io/relay/internal/handlers"
+	"github.com/harvor-io/relay/internal/logging"
 	"github.com/harvor-io/relay/internal/middleware"
 	sqliterepo "github.com/harvor-io/relay/internal/repositories/sqlite"
 	"github.com/harvor-io/relay/internal/services"
 )
+
+// shutdownTimeout bounds how long in-flight requests have to finish once a
+// shutdown signal arrives before the server stops waiting.
+const shutdownTimeout = 15 * time.Second
 
 // ServeCommand starts the HTTP API.
 func ServeCommand() *cli.Command {
@@ -27,6 +36,14 @@ func ServeCommand() *cli.Command {
 		Description: "Serve the Relay HTTP API",
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			cfg := config.New()
+
+			logger := logging.New(os.Stderr, cfg.LogLevel, cfg.LogFormat)
+			slog.SetDefault(logger)
+
+			logger.Info("starting relay",
+				"port", cfg.Port,
+				"database_driver", cfg.DatabaseDriver,
+			)
 
 			db, err := database.Open(ctx, cfg)
 			if err != nil {
@@ -43,13 +60,14 @@ func ServeCommand() *cli.Command {
 				return err
 			}
 			if applied > 0 {
-				log.Printf("serve: applied %d migration(s)", applied)
+				logger.Info("applied database migrations", "count", applied)
 			}
 
 			sourceService := services.NewSourceService(sqliterepo.NewSourceRepository(db))
 
 			r := chi.NewRouter()
 			r.Use(middleware.RequestID)
+			r.Use(middleware.RequestLogger(logger))
 			r.Use(chimiddleware.Recoverer)
 
 			r.Route("/api/v1", func(api chi.Router) {
@@ -70,11 +88,40 @@ func ServeCommand() *cli.Command {
 				Handler: r,
 			}
 
-			log.Printf("serve: listening on %s", srv.Addr)
-			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			// Trip ctx on the first interrupt/terminate signal so the select
+			// below can start a graceful drain.
+			ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+			defer stop()
+
+			serveErr := make(chan error, 1)
+			go func() {
+				logger.Info("listening", "addr", srv.Addr)
+				err := srv.ListenAndServe()
+				if errors.Is(err, http.ErrServerClosed) {
+					err = nil
+				}
+				serveErr <- err
+			}()
+
+			select {
+			case err := <-serveErr:
+				if err != nil {
+					logger.Error("server stopped unexpectedly", "error", err)
+				}
 				return err
+			case <-ctx.Done():
+				logger.Info("shutdown signal received, draining connections",
+					"timeout", shutdownTimeout,
+				)
+				shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+				defer cancel()
+				if err := srv.Shutdown(shutdownCtx); err != nil {
+					logger.Error("graceful shutdown failed", "error", err)
+					return err
+				}
+				logger.Info("shutdown complete")
+				return nil
 			}
-			return nil
 		},
 	}
 }

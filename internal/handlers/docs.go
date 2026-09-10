@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"html/template"
 	"io/fs"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -91,7 +91,7 @@ func (h *DocsHandler) GetDocs(w http.ResponseWriter, r *http.Request) {
 	// 200 response on the wire.
 	var buf bytes.Buffer
 	if err := docsTemplate.Execute(&buf, apiDescriptionURL); err != nil {
-		log.Printf("docs: failed to render documentation template: %v", err)
+		slog.ErrorContext(r.Context(), "docs: render documentation template", "error", err)
 		http.Error(w, "Failed to render documentation", http.StatusInternalServerError)
 		return
 	}

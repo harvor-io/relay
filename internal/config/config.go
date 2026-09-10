@@ -6,6 +6,15 @@ import "os"
 const (
 	defaultPort = "8080"
 
+	// defaultLogLevel is the minimum slog level emitted: one of "debug",
+	// "info", "warn", or "error".
+	defaultLogLevel = "info"
+
+	// defaultLogFormat selects the slog handler: "json" for machine-readable
+	// logs (the default, suited to production log pipelines) or "text" for
+	// human-readable key=value lines.
+	defaultLogFormat = "json"
+
 	// defaultDatabaseDriver is the pure-Go SQLite driver, so the service runs
 	// with no external database and no cgo by default.
 	defaultDatabaseDriver = "sqlite"
@@ -19,6 +28,13 @@ const (
 // Config contains the settings required to run the app.
 type Config struct {
 	Port string
+
+	// LogLevel is the minimum severity written to the structured log:
+	// "debug", "info", "warn", or "error". Anything else falls back to "info".
+	LogLevel string
+
+	// LogFormat selects the log handler: "json" (default) or "text".
+	LogFormat string
 
 	// DatabaseDriver selects the registered database/sql driver to open.
 	// "sqlite" (the default) is the embedded pure-Go SQLite engine; "libsql"
@@ -39,6 +55,8 @@ type Config struct {
 func New() *Config {
 	return &Config{
 		Port:              envOrDefault("PORT", defaultPort),
+		LogLevel:          envOrDefault("LOG_LEVEL", defaultLogLevel),
+		LogFormat:         envOrDefault("LOG_FORMAT", defaultLogFormat),
 		DatabaseDriver:    envOrDefault("DATABASE_DRIVER", defaultDatabaseDriver),
 		DatabaseURL:       envOrDefault("DATABASE_URL", defaultDatabaseURL),
 		DatabaseAuthToken: os.Getenv("DATABASE_AUTH_TOKEN"),
