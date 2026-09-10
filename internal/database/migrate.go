@@ -10,8 +10,8 @@ import (
 	"github.com/pressly/goose/v3"
 
 	"github.com/harvor-io/relay/internal/database/libsql"
+	"github.com/harvor-io/relay/internal/database/migrations"
 	"github.com/harvor-io/relay/internal/database/sqlite"
-	"github.com/harvor-io/relay/migrations"
 )
 
 // Migrator applies and inspects the schema migrations embedded in the

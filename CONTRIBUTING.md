@@ -38,8 +38,8 @@ the HTTP API.
 | [internal/middleware/](internal/middleware/) | HTTP middleware (e.g. UUIDv7 request IDs) |
 | [internal/models/](internal/models/) | Core domain entities (`Source`, `Destination`, `Envelope`) |
 | [internal/database/](internal/database/) | Connection setup (`sqlite`, `libsql` sub-packages) and the migration runner (`goose`) |
+| [internal/database/migrations/](internal/database/migrations/) | SQL migration files, embedded with `embed.FS`, one sub-directory per engine |
 | [internal/repositories/](internal/repositories/) | Persistence interfaces and their SQLite implementations |
-| [migrations/](migrations/) | SQL migration files, embedded with `embed.FS`, one sub-directory per engine |
 | [static/](static/) | OpenAPI spec, embedded into the binary with `embed.FS` |
 
 ### Configuration
@@ -56,8 +56,9 @@ Configuration is read from environment variables:
 ### Database migrations
 
 Schema migrations are [goose](https://github.com/pressly/goose) SQL files under
-[migrations/](migrations/), grouped by engine (`migrations/sqlite/` is shared by
-the `sqlite` and `libsql` drivers). They are embedded into the binary.
+[internal/database/migrations/](internal/database/migrations/), grouped by engine
+(`internal/database/migrations/sqlite/` is shared by the `sqlite` and `libsql`
+drivers). They are embedded into the binary.
 
 ```sh
 go run ./cmd/relay migrate status   # list migrations and their state
