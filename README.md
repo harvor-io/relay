@@ -6,6 +6,8 @@ Relay is a lightweight, self-hosted event ingestion and routing service from [Ha
 
 Applications publish events to Relay, and Relay handles getting them where they need to go. Configure your sources, routes, and destinations without coupling producers to the systems consuming their events.
 
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for an overview of how Relay is put together.
+
 > [!WARNING]
 > **Work in progress**
 >

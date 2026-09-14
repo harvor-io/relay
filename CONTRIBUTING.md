@@ -15,6 +15,10 @@ Please read that first. **This document only covers the specifics of working
 in the Relay repository**: how the service is structured, how to run it
 locally, and how to run the checks CI enforces.
 
+For a conceptual overview of how Relay works — sources, destinations,
+subscriptions, and the event flow between them — see
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Prerequisites
 
 - [Go](https://go.dev/dl/) (the version in [go.mod](go.mod))
