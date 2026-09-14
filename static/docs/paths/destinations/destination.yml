@@ -1,0 +1,99 @@
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: The destination's UUID.
+    schema:
+      type: string
+      format: uuid
+
+get:
+  operationId: getDestination
+  summary: Get a destination
+  description: Returns a single destination by ID.
+  tags:
+    - Destinations
+  responses:
+    "200":
+      description: The destination.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Destination"
+    "400":
+      description: The ID is not a valid UUID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No destination exists with that ID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+
+patch:
+  operationId: updateDestination
+  summary: Update a destination
+  description: >-
+    Updates the name and/or description of an existing destination. Fields
+    left out of the request body (or sent as null) are unchanged. Surrounding
+    whitespace is trimmed; a description that is empty after trimming clears
+    it, so to leave the description untouched, omit it rather than sending an
+    empty string.
+  tags:
+    - Destinations
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../../schemas.yml#/components/schemas/UpdateDestination"
+  responses:
+    "200":
+      description: The updated destination.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Destination"
+    "400":
+      description: The ID is not a valid UUID, or the request body is not valid JSON.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No destination exists with that ID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "422":
+      description: The request body failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+
+delete:
+  operationId: deleteDestination
+  summary: Delete a destination
+  description: Removes a destination by ID.
+  tags:
+    - Destinations
+  responses:
+    "204":
+      description: The destination was deleted.
+    "400":
+      description: The ID is not a valid UUID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No destination exists with that ID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"

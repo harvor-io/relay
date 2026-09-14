@@ -1,0 +1,34 @@
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: The destination's UUID.
+    schema:
+      type: string
+      format: uuid
+
+post:
+  operationId: activateDestination
+  summary: Activate a destination
+  description: Marks the destination as active, so ingested data is forwarded to it.
+  tags:
+    - Destinations
+  responses:
+    "200":
+      description: The updated destination.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Destination"
+    "400":
+      description: The ID is not a valid UUID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No destination exists with that ID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"

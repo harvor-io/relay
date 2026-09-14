@@ -1,10 +1,18 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/gofrs/uuid/v5"
 )
+
+// DestinationType identifies the delivery mechanism a Destination uses.
+type DestinationType string
+
+// DestinationTypeWebhook delivers data by making an outbound HTTP request to
+// a configured URL. It is currently the only supported DestinationType.
+const DestinationTypeWebhook DestinationType = "webhook"
 
 // Destination represents a target that relay forwards ingested data to, such as
 // a downstream service, a database sink, or an outbound webhook consumer. Data
@@ -18,6 +26,15 @@ type Destination struct {
 	// Name is the human-readable label used to recognise the Destination in
 	// logs, dashboards, and configuration.
 	Name string
+
+	// Type is the delivery mechanism this Destination uses. It is fixed at
+	// creation time.
+	Type DestinationType
+
+	// Config is the Type-specific delivery configuration, stored verbatim as
+	// JSON and fixed at creation time. For DestinationTypeWebhook, it decodes
+	// as WebhookConfig.
+	Config json.RawMessage
 
 	// Description is an optional free-form explanation of what the Destination
 	// is and why it exists. It is nil when no description has been provided.

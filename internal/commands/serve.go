@@ -70,6 +70,8 @@ func ServeCommand() *cli.Command {
 			sourceRepo := sqliterepo.NewSourceRepository(db)
 			sourceService := services.NewSourceService(sourceRepo)
 
+			destinationRepo := sqliterepo.NewDestinationRepository(db)
+
 			secretsDB, err := database.Open(ctx, &config.Config{
 				DatabaseDriver:    cfg.Secrets.Driver,
 				DatabaseURL:       cfg.Secrets.DatabaseURL,
@@ -101,6 +103,8 @@ func ServeCommand() *cli.Command {
 				enc,
 			)
 
+			destinationService := services.NewDestinationService(destinationRepo, secretStore, enc)
+
 			r := chi.NewRouter()
 			r.Use(middleware.RequestID)
 			r.Use(middleware.RequestLogger(logger))
@@ -112,6 +116,7 @@ func ServeCommand() *cli.Command {
 				handlers.NewHealthHandler().RegisterRoutes(api)
 				handlers.NewSourceHandler(sourceService).RegisterRoutes(api)
 				handlers.NewSourceKeyHandler(sourceKeyService).RegisterRoutes(api)
+				handlers.NewDestinationHandler(destinationService).RegisterRoutes(api)
 			})
 
 			docsHandler, err := handlers.NewDocsHandler()

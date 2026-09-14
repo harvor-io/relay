@@ -23,6 +23,36 @@ export interface CreatedSourceKeyResource extends SourceKeyResource {
   secret: string;
 }
 
+export interface HMACAuthConfig {
+  secret_id: string;
+  algorithm: string;
+  signature_header: string;
+  encoding: string;
+  signing_template: string;
+  timestamp_header: string;
+}
+
+export interface AuthConfig {
+  type: "hmac";
+  config: HMACAuthConfig;
+}
+
+export interface WebhookConfig {
+  url: string;
+  auth?: AuthConfig;
+}
+
+export interface DestinationResource {
+  id: string;
+  name: string;
+  type: "webhook";
+  config: WebhookConfig;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // uniqueSlug avoids collisions between test runs sharing the same database.
 export function uniqueSlug(prefix: string): string {
   return `${prefix}-${randomUUID()}`;

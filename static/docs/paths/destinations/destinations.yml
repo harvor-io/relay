@@ -1,0 +1,63 @@
+get:
+  operationId: listDestinations
+  summary: List destinations
+  description: Returns every registered destination, ordered by name.
+  tags:
+    - Destinations
+  responses:
+    "200":
+      description: The list of destinations.
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "../../schemas.yml#/components/schemas/Destination"
+
+post:
+  operationId: createDestination
+  summary: Register a destination
+  description: >-
+    Creates a new destination, which starts active. Surrounding whitespace is
+    trimmed from every field; a description that is empty after trimming is
+    stored as null. When no type is supplied, it defaults to "webhook",
+    currently the only supported type. Config is required and validated
+    against the shape type expects; for "webhook" that means a non-empty url,
+    and an auth.type of "hmac" if auth is present. When auth is hmac, the
+    caller supplies the plaintext signing secret (see NewHMACAuthConfig);
+    it is encrypted and stored in the secrets store, and the response's
+    config carries only a reference to it, never the plaintext. When no ID
+    is supplied, a UUIDv7 is generated.
+  tags:
+    - Destinations
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../../schemas.yml#/components/schemas/NewDestination"
+  responses:
+    "201":
+      description: The destination was created.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Destination"
+    "400":
+      description: The request body is not valid JSON.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "409":
+      description: The requested ID is already in use.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "422":
+      description: The request body failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"

@@ -166,6 +166,276 @@ components:
                 retrieved again.
               example: 9f2b1c...4a7e
 
+    Destination:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - config
+        - description
+        - is_active
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Stable unique identifier (UUIDv7).
+          example: 0192a5c8-3b6f-7d4a-9c2e-4f5a6b7c8d9e
+        name:
+          type: string
+          description: Human-readable label for the destination.
+          example: warehouse
+        type:
+          type: string
+          enum:
+            - webhook
+          description: >-
+            The destination's delivery mechanism. Fixed at creation time;
+            "webhook" is currently the only supported type.
+          example: webhook
+        config:
+          description: >-
+            The type-specific delivery configuration, fixed at creation time.
+            Its shape depends on type; for "webhook", see WebhookConfig.
+          oneOf:
+            - $ref: "#/components/schemas/WebhookConfig"
+        description:
+          type: string
+          nullable: true
+          description: Optional free-form explanation, or null when unset.
+          example: Batched delivery of order events to the data warehouse.
+        is_active:
+          type: boolean
+          description: Whether the destination currently accepts deliveries.
+        created_at:
+          type: string
+          format: date-time
+          description: When the destination was registered.
+        updated_at:
+          type: string
+          format: date-time
+          description: When the destination was last modified.
+
+    NewDestination:
+      type: object
+      required:
+        - name
+        - config
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: >-
+            Optional client-supplied UUID for the destination. When omitted,
+            a UUIDv7 is generated. When supplied, it must not already belong
+            to another destination.
+          example: 0192a5c8-3b6f-7d4a-9c2e-4f5a6b7c8d9e
+        name:
+          type: string
+          description: Human-readable label for the destination. Required.
+          example: warehouse
+        type:
+          type: string
+          enum:
+            - webhook
+          description: >-
+            The destination's delivery mechanism. Optional; defaults to
+            "webhook", currently the only supported type.
+          example: webhook
+        config:
+          description: >-
+            The type-specific delivery configuration. Required; its shape
+            depends on type. For "webhook", see NewWebhookConfig.
+          oneOf:
+            - $ref: "#/components/schemas/NewWebhookConfig"
+        description:
+          type: string
+          nullable: true
+          description: Optional free-form explanation.
+          example: Batched delivery of order events to the data warehouse.
+
+    NewWebhookConfig:
+      description: >-
+        The config accepted for a new "webhook" destination. Shaped like
+        WebhookConfig, except auth carries the plaintext secret to store
+        rather than a reference to it.
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          description: The HTTP endpoint envelopes are delivered to.
+          example: https://example.com/webhook
+        auth:
+          $ref: "#/components/schemas/NewAuthConfig"
+
+    NewAuthConfig:
+      description: >-
+        Authentication to apply to outbound webhook requests. Omit entirely
+        to call the webhook without authentication.
+      type: object
+      required:
+        - type
+        - config
+      properties:
+        type:
+          type: string
+          enum:
+            - hmac
+          description: >-
+            The authentication scheme. "hmac" is currently the only
+            supported type.
+          example: hmac
+        config:
+          description: >-
+            The scheme-specific configuration; its shape depends on type.
+            For "hmac", see NewHMACAuthConfig.
+          oneOf:
+            - $ref: "#/components/schemas/NewHMACAuthConfig"
+
+    NewHMACAuthConfig:
+      description: >-
+        The config accepted for a new "hmac" auth config. The plaintext
+        secret is encrypted and stored in the secrets store; it is never
+        persisted verbatim or returned in a response. Shaped like
+        HMACAuthConfig, with secret in place of secret_id.
+      type: object
+      required:
+        - secret
+        - algorithm
+        - signature_header
+        - encoding
+        - signing_template
+        - timestamp_header
+      properties:
+        secret:
+          type: string
+          description: >-
+            The plaintext HMAC signing secret. Store it yourself; it is
+            never returned by the API again.
+          example: 9f2b1c...4a7e
+        algorithm:
+          type: string
+          description: The HMAC hash algorithm.
+          example: sha256
+        signature_header:
+          type: string
+          description: The HTTP header the computed signature is sent in.
+          example: X-Signature
+        encoding:
+          type: string
+          description: How the signature bytes are encoded into the header.
+          example: hex
+        signing_template:
+          type: string
+          description: Describes what is signed.
+          example: "{timestamp}.{body}"
+        timestamp_header:
+          type: string
+          description: >-
+            The HTTP header the request timestamp is sent in, referenced by
+            signing_template.
+          example: X-Timestamp
+
+    WebhookConfig:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          description: The HTTP endpoint envelopes are delivered to.
+          example: https://example.com/webhook
+        auth:
+          $ref: "#/components/schemas/AuthConfig"
+
+    AuthConfig:
+      description: >-
+        Authentication applied to outbound webhook requests. Omit entirely
+        to call the webhook without authentication.
+      type: object
+      required:
+        - type
+        - config
+      properties:
+        type:
+          type: string
+          enum:
+            - hmac
+          description: >-
+            The authentication scheme. "hmac" is currently the only
+            supported type.
+          example: hmac
+        config:
+          description: >-
+            The scheme-specific configuration; its shape depends on type.
+            For "hmac", see HMACAuthConfig.
+          oneOf:
+            - $ref: "#/components/schemas/HMACAuthConfig"
+
+    HMACAuthConfig:
+      type: object
+      required:
+        - secret_id
+        - algorithm
+        - signature_header
+        - encoding
+        - signing_template
+        - timestamp_header
+      properties:
+        secret_id:
+          type: string
+          description: >-
+            References the HMAC secret held in the secrets store. Assigned
+            by the server when the destination was created from the
+            plaintext secret supplied in NewHMACAuthConfig; the plaintext is
+            never returned.
+          example: abc123
+        algorithm:
+          type: string
+          description: The HMAC hash algorithm.
+          example: sha256
+        signature_header:
+          type: string
+          description: The HTTP header the computed signature is sent in.
+          example: X-Signature
+        encoding:
+          type: string
+          description: How the signature bytes are encoded into the header.
+          example: hex
+        signing_template:
+          type: string
+          description: Describes what is signed.
+          example: "{timestamp}.{body}"
+        timestamp_header:
+          type: string
+          description: >-
+            The HTTP header the request timestamp is sent in, referenced by
+            signing_template.
+          example: X-Timestamp
+
+    UpdateDestination:
+      type: object
+      properties:
+        name:
+          type: string
+          description: >-
+            New human-readable label for the destination. Omit to leave the
+            name unchanged.
+          example: warehouse
+        description:
+          type: string
+          nullable: true
+          description: >-
+            New free-form explanation. Omit to leave the description
+            unchanged; a value that is empty after trimming clears it.
+          example: Batched delivery of order events to the data warehouse.
+
     Error:
       type: object
       required:

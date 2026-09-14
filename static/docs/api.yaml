@@ -15,6 +15,8 @@ tags:
     description: Origins that relay ingests data from.
   - name: Source Keys
     description: HMAC credentials used to verify signed requests from a Source.
+  - name: Destinations
+    description: Targets that relay forwards ingested data to.
 paths:
   /healthz:
     $ref: "./paths/health/healthz.yml"
@@ -30,3 +32,11 @@ paths:
     $ref: "./paths/sources/keys/activate.yml"
   /sources/{id}/keys/{keyID}/deactivate:
     $ref: "./paths/sources/keys/deactivate.yml"
+  /destinations:
+    $ref: "./paths/destinations/destinations.yml"
+  /destinations/{id}:
+    $ref: "./paths/destinations/destination.yml"
+  /destinations/{id}/activate:
+    $ref: "./paths/destinations/activate.yml"
+  /destinations/{id}/deactivate:
+    $ref: "./paths/destinations/deactivate.yml"

@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -27,9 +28,10 @@ func NewDestinationRepository(db *sql.DB) *DestinationRepository {
 	return &DestinationRepository{db: db}
 }
 
-const destinationColumns = `id, name, description, is_active, created_at, updated_at`
+const destinationColumns = `id, name, type, config, description, is_active, created_at, updated_at`
 
-// Create inserts a new destination, assigning a UUIDv7 and timestamps when unset.
+// Create inserts a new destination, assigning a UUIDv7 and timestamps when
+// unset.
 func (r *DestinationRepository) Create(ctx context.Context, destination *models.Destination) error {
 	if destination.ID.IsNil() {
 		id, err := uuid.NewV7()
@@ -45,15 +47,20 @@ func (r *DestinationRepository) Create(ctx context.Context, destination *models.
 	destination.UpdatedAt = now
 
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO destinations (`+destinationColumns+`) VALUES (?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO destinations (`+destinationColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		destination.ID.String(),
 		destination.Name,
+		string(destination.Type),
+		string(destination.Config),
 		sqlitedb.NullString(destination.Description),
-		sqlitedb.BoolToInt(destination.IsActive),
+		destination.IsActive,
 		destination.CreatedAt.Format(sqlitedb.TimeLayout),
 		destination.UpdatedAt.Format(sqlitedb.TimeLayout),
 	)
 	if err != nil {
+		if sqlitedb.IsUniqueViolation(err) {
+			return repositories.ErrConflict
+		}
 		return fmt.Errorf("sqlite: insert destination: %w", err)
 	}
 	return nil
@@ -96,7 +103,7 @@ func (r *DestinationRepository) Update(ctx context.Context, destination *models.
 		`UPDATE destinations SET name = ?, description = ?, is_active = ?, updated_at = ? WHERE id = ?`,
 		destination.Name,
 		sqlitedb.NullString(destination.Description),
-		sqlitedb.BoolToInt(destination.IsActive),
+		destination.IsActive,
 		destination.UpdatedAt.Format(sqlitedb.TimeLayout),
 		destination.ID.String(),
 	)
@@ -117,13 +124,12 @@ func (r *DestinationRepository) Delete(ctx context.Context, id uuid.UUID) error 
 
 func scanDestination(s sqlitedb.Scanner) (*models.Destination, error) {
 	var (
-		destination          models.Destination
-		idStr                string
-		description          sql.NullString
-		isActive             int
-		createdAt, updatedAt string
+		destination               models.Destination
+		idStr, typeStr, configStr string
+		description               sql.NullString
+		createdAt, updatedAt      string
 	)
-	if err := s.Scan(&idStr, &destination.Name, &description, &isActive, &createdAt, &updatedAt); err != nil {
+	if err := s.Scan(&idStr, &destination.Name, &typeStr, &configStr, &description, &destination.IsActive, &createdAt, &updatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, repositories.ErrNotFound
 		}
@@ -135,8 +141,9 @@ func scanDestination(s sqlitedb.Scanner) (*models.Destination, error) {
 		return nil, fmt.Errorf("sqlite: parse destination id: %w", err)
 	}
 	destination.ID = id
+	destination.Type = models.DestinationType(typeStr)
+	destination.Config = json.RawMessage(configStr)
 	destination.Description = sqlitedb.StringPtr(description)
-	destination.IsActive = isActive != 0
 	if destination.CreatedAt, err = sqlitedb.ParseTime(createdAt); err != nil {
 		return nil, fmt.Errorf("sqlite: parse destination created_at: %w", err)
 	}
