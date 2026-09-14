@@ -69,6 +69,69 @@ components:
           description: Optional free-form explanation.
           example: Order events from the storefront.
 
+    SourceKey:
+      type: object
+      required:
+        - id
+        - source_id
+        - name
+        - is_active
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          description: Stable unique identifier for the key.
+          example: 0192a5c8-2a5f-7b3c-8d1e-4f5a6b7c8d9e
+        source_id:
+          type: string
+          format: uuid
+          description: The source this key belongs to.
+          example: 0192a5c8-1f4e-7c3a-9b2d-3e4f5a6b7c8d
+        name:
+          type: string
+          description: Human-readable label for the key.
+          example: primary
+        is_active:
+          type: boolean
+          description: Whether the key is currently accepted for verifying signed requests.
+        created_at:
+          type: string
+          format: date-time
+          description: When the key was created.
+        updated_at:
+          type: string
+          format: date-time
+          description: When the key was last modified.
+
+    NewSourceKey:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Human-readable label for the key. Required.
+          example: primary
+
+    CreatedSourceKey:
+      description: >-
+        A newly created source key, together with its plaintext secret. The
+        secret is only ever returned in this response; it is encrypted at
+        rest and cannot be retrieved again.
+      allOf:
+        - $ref: "#/components/schemas/SourceKey"
+        - type: object
+          required:
+            - secret
+          properties:
+            secret:
+              type: string
+              description: >-
+                The key's secret, hex-encoded. Store it now; it cannot be
+                retrieved again.
+              example: 9f2b1c...4a7e
+
     Error:
       type: object
       required:

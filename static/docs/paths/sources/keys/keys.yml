@@ -1,0 +1,77 @@
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: The source's UUID.
+    schema:
+      type: string
+      format: uuid
+
+get:
+  operationId: listSourceKeys
+  summary: List a source's keys
+  description: Returns every key belonging to the source, ordered by name.
+  tags:
+    - Source Keys
+  responses:
+    "200":
+      description: The list of keys.
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "../../schemas.yml#/components/schemas/SourceKey"
+    "400":
+      description: The source ID is not a valid UUID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No source exists with that ID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+
+post:
+  operationId: createSourceKey
+  summary: Create a source key
+  description: >-
+    Generates a new key for the source. The response includes the plaintext
+    secret exactly once; it is encrypted at rest and cannot be retrieved
+    again, so callers must store it when it is returned.
+  tags:
+    - Source Keys
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../../schemas.yml#/components/schemas/NewSourceKey"
+  responses:
+    "201":
+      description: The key was created.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/CreatedSourceKey"
+    "400":
+      description: The source ID is not a valid UUID, or the request body is not valid JSON.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No source exists with that ID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "422":
+      description: The request body failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"

@@ -58,6 +58,9 @@ Configuration is read from environment variables:
 | `DATABASE_AUTH_TOKEN` | _(empty)_ | Auth token for a hosted libSQL database; unused for local files |
 | `LOG_LEVEL` | `info` | Minimum structured-log severity: `debug`, `info`, `warn`, or `error` |
 | `LOG_FORMAT` | `json` | Log handler: `json` (machine-readable) or `text` (human-readable) |
+| `SECRETS_DATABASE_DRIVER` | `sqlite` | Database driver for the secret store; same options as `DATABASE_DRIVER` |
+| `SECRETS_DATABASE_URL` | value of `DATABASE_URL` | Data source for the secret store; set to keep secrets in a dedicated database |
+| `SECRETS_ENCRYPTION_KEY` | _(none)_ | Key used to encrypt secrets at rest; must be base64-encoded 32 random bytes (e.g. `openssl rand -base64 32`) |
 
 ### Database migrations
 

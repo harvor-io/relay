@@ -1,0 +1,62 @@
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: The source's UUID.
+    schema:
+      type: string
+      format: uuid
+  - name: keyID
+    in: path
+    required: true
+    description: The key's ID.
+    schema:
+      type: string
+
+get:
+  operationId: getSourceKey
+  summary: Get a source key
+  description: Returns a single key belonging to the source.
+  tags:
+    - Source Keys
+  responses:
+    "200":
+      description: The key.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/SourceKey"
+    "400":
+      description: The source ID is not a valid UUID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No such key exists for that source.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+
+delete:
+  operationId: deleteSourceKey
+  summary: Delete a source key
+  description: Removes a key and its underlying secret.
+  tags:
+    - Source Keys
+  responses:
+    "204":
+      description: The key was deleted.
+    "400":
+      description: The source ID is not a valid UUID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No such key exists for that source.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"

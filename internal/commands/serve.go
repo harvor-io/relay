@@ -3,7 +3,9 @@ package commands
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -22,6 +24,8 @@ import (
 	"github.com/harvor-io/relay/internal/middleware"
 	sqliterepo "github.com/harvor-io/relay/internal/repositories/sqlite"
 	"github.com/harvor-io/relay/internal/services"
+	"github.com/harvor-io/relay/pkg/encryptor/aes"
+	secretssqlite "github.com/harvor-io/relay/pkg/secrets/sqlite"
 )
 
 // shutdownTimeout bounds how long in-flight requests have to finish once a
@@ -63,7 +67,39 @@ func ServeCommand() *cli.Command {
 				logger.Info("applied database migrations", "count", applied)
 			}
 
-			sourceService := services.NewSourceService(sqliterepo.NewSourceRepository(db))
+			sourceRepo := sqliterepo.NewSourceRepository(db)
+			sourceService := services.NewSourceService(sourceRepo)
+
+			secretsDB, err := database.Open(ctx, &config.Config{
+				DatabaseDriver:    cfg.Secrets.Driver,
+				DatabaseURL:       cfg.Secrets.DatabaseURL,
+				DatabaseAuthToken: cfg.DatabaseAuthToken,
+			})
+			if err != nil {
+				return err
+			}
+			defer func() { _ = secretsDB.Close() }()
+
+			secretStore, err := secretssqlite.NewStore(ctx, secretsDB)
+			if err != nil {
+				return err
+			}
+
+			encryptionKey, err := base64.StdEncoding.DecodeString(cfg.Secrets.EncryptionKey)
+			if err != nil {
+				return fmt.Errorf("invalid SECRETS_ENCRYPTION_KEY: %w", err)
+			}
+			enc, err := aes.New(encryptionKey)
+			if err != nil {
+				return fmt.Errorf("invalid SECRETS_ENCRYPTION_KEY: %w", err)
+			}
+
+			sourceKeyService := services.NewSourceKeyService(
+				sqliterepo.NewSourceKeyRepository(db),
+				sourceRepo,
+				secretStore,
+				enc,
+			)
 
 			r := chi.NewRouter()
 			r.Use(middleware.RequestID)
@@ -75,6 +111,7 @@ func ServeCommand() *cli.Command {
 				// load balancers) can reach it without a token.
 				handlers.NewHealthHandler().RegisterRoutes(api)
 				handlers.NewSourceHandler(sourceService).RegisterRoutes(api)
+				handlers.NewSourceKeyHandler(sourceKeyService).RegisterRoutes(api)
 			})
 
 			docsHandler, err := handlers.NewDocsHandler()

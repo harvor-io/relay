@@ -38,3 +38,36 @@ type Source struct {
 	// equals CreatedAt for a Source that has never been changed.
 	UpdatedAt time.Time
 }
+
+// SourceKey is a credential used to verify HMAC-signed requests from a
+// Source. A Source may have many keys, for example to support rotation
+// without downtime.
+type SourceKey struct {
+	// ID is the public identifier of the key. Unlike SecretID, it is safe to
+	// expose to clients and does not grant access to the key material.
+	ID string
+
+	// SourceID is the Source this key belongs to.
+	SourceID uuid.UUID
+
+	// SecretID references the key material held in the secrets store. It is
+	// never exposed to clients.
+	SecretID uuid.UUID
+
+	// Name is a human-readable label used to recognise the key in logs and
+	// dashboards, for example to distinguish it from other keys during
+	// rotation.
+	Name string
+
+	// IsActive indicates whether the key is currently accepted for
+	// verifying signed requests. Deactivating a key without deleting it
+	// supports rotation without losing its history.
+	IsActive bool
+
+	// CreatedAt is the moment the key was created.
+	CreatedAt time.Time
+
+	// UpdatedAt is the moment the key's details were last modified. It
+	// equals CreatedAt for a key that has never been changed.
+	UpdatedAt time.Time
+}

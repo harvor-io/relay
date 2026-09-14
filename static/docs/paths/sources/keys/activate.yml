@@ -1,0 +1,40 @@
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: The source's UUID.
+    schema:
+      type: string
+      format: uuid
+  - name: keyID
+    in: path
+    required: true
+    description: The key's ID.
+    schema:
+      type: string
+
+post:
+  operationId: activateSourceKey
+  summary: Activate a source key
+  description: Marks the key as active, so it is accepted for verifying signed requests.
+  tags:
+    - Source Keys
+  responses:
+    "200":
+      description: The updated key.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/SourceKey"
+    "400":
+      description: The source ID is not a valid UUID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No such key exists for that source.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"

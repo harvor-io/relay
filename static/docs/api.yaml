@@ -13,6 +13,8 @@ tags:
     description: Service availability checks.
   - name: Sources
     description: Origins that relay ingests data from.
+  - name: Source Keys
+    description: HMAC credentials used to verify signed requests from a Source.
 paths:
   /healthz:
     $ref: "./paths/health/healthz.yml"
@@ -20,3 +22,11 @@ paths:
     $ref: "./paths/sources/sources.yml"
   /sources/{id}:
     $ref: "./paths/sources/source.yml"
+  /sources/{id}/keys:
+    $ref: "./paths/sources/keys/keys.yml"
+  /sources/{id}/keys/{keyID}:
+    $ref: "./paths/sources/keys/key.yml"
+  /sources/{id}/keys/{keyID}/activate:
+    $ref: "./paths/sources/keys/activate.yml"
+  /sources/{id}/keys/{keyID}/deactivate:
+    $ref: "./paths/sources/keys/deactivate.yml"

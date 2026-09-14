@@ -10,6 +10,9 @@ services:
       # Persist the embedded SQLite database on the named volume mounted at the
       # container's working directory (/app).
       DATABASE_URL: "file:/app/relay.db"
+      # Local-only default; not safe for production. Generate a real key with
+      # `openssl rand -base64 32` and override for any shared environment.
+      SECRETS_ENCRYPTION_KEY: "zDyU45SrX4e+F6jXLeAXfogo2DP749N9yhKWqUM4gvE="
     volumes:
       - relay-data:/app
     expose:

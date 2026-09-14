@@ -49,17 +49,46 @@ type Config struct {
 	// DatabaseAuthToken authenticates against a hosted libSQL database. It is
 	// empty for local file databases.
 	DatabaseAuthToken string
+
+	// Secrets configures the secret store used to encrypt-at-rest values
+	// such as source keys.
+	Secrets SecretsConfig
+}
+
+// SecretsConfig configures the secret store.
+type SecretsConfig struct {
+	// Driver selects the registered database/sql driver to open for the
+	// secret store, matching Config.DatabaseDriver's semantics. Defaults to
+	// "sqlite".
+	Driver string
+
+	// DatabaseURL is the secret store's data source. Defaults to the main
+	// Config.DatabaseURL so secrets live alongside the rest of the data;
+	// override with SECRETS_DATABASE_URL to keep a dedicated secrets store.
+	DatabaseURL string
+
+	// EncryptionKey encrypts secrets (e.g. source keys) at rest. It must be
+	// base64-encoded 32 random bytes, suitable for use as an AES-256 key
+	// (e.g. `openssl rand -base64 32`).
+	EncryptionKey string
 }
 
 // New loads configuration from the environment.
 func New() *Config {
+	databaseURL := envOrDefault("DATABASE_URL", defaultDatabaseURL)
+
 	return &Config{
 		Port:              envOrDefault("PORT", defaultPort),
 		LogLevel:          envOrDefault("LOG_LEVEL", defaultLogLevel),
 		LogFormat:         envOrDefault("LOG_FORMAT", defaultLogFormat),
 		DatabaseDriver:    envOrDefault("DATABASE_DRIVER", defaultDatabaseDriver),
-		DatabaseURL:       envOrDefault("DATABASE_URL", defaultDatabaseURL),
+		DatabaseURL:       databaseURL,
 		DatabaseAuthToken: os.Getenv("DATABASE_AUTH_TOKEN"),
+		Secrets: SecretsConfig{
+			Driver:        envOrDefault("SECRETS_DATABASE_DRIVER", defaultDatabaseDriver),
+			DatabaseURL:   envOrDefault("SECRETS_DATABASE_URL", databaseURL),
+			EncryptionKey: os.Getenv("SECRETS_ENCRYPTION_KEY"),
+		},
 	}
 }
 
