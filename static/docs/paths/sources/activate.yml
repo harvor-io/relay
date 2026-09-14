@@ -1,0 +1,34 @@
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: The source's UUID.
+    schema:
+      type: string
+      format: uuid
+
+post:
+  operationId: activateSource
+  summary: Activate a source
+  description: Marks the source as active, so it can ingest events again.
+  tags:
+    - Sources
+  responses:
+    "200":
+      description: The updated source.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Source"
+    "400":
+      description: The ID is not a valid UUID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No source exists with that ID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"

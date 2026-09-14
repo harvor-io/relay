@@ -17,6 +17,7 @@ components:
         - name
         - slug
         - description
+        - is_active
         - created_at
         - updated_at
       properties:
@@ -38,6 +39,9 @@ components:
           nullable: true
           description: Optional free-form explanation, or null when unset.
           example: Order events from the storefront.
+        is_active:
+          type: boolean
+          description: Whether the source currently accepts ingested events.
         created_at:
           type: string
           format: date-time

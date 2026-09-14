@@ -46,6 +46,27 @@ test.describe("ingest", () => {
     expect(envelope.created_at).toBeTruthy();
   });
 
+  test("422 when the source is not active", async ({ request }) => {
+    const deactivate = await request.post(`sources/${source.id}/deactivate`);
+    expect(deactivate.status()).toBe(200);
+
+    try {
+      const body = JSON.stringify({ type: "e2e.event", data: { hello: "world" } });
+      const signature = signIngestBody(key.secret, body);
+
+      const response = await request.post(`ingest/${source.slug}`, {
+        data: body,
+        headers: { "X-Relay-Signature": signature },
+      });
+
+      expect(response.status()).toBe(422);
+      expect(await response.json()).toEqual({ error: "source not active" });
+    } finally {
+      const reactivate = await request.post(`sources/${source.id}/activate`);
+      expect(reactivate.status()).toBe(200);
+    }
+  });
+
   test("happy path: ingest by source id", async ({ request }) => {
     const payload = { hello: "again" };
     const body = JSON.stringify({ type: "e2e.event", data: payload });

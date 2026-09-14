@@ -28,6 +28,10 @@ paths:
     $ref: "./paths/sources/sources.yml"
   /sources/{id}:
     $ref: "./paths/sources/source.yml"
+  /sources/{id}/activate:
+    $ref: "./paths/sources/activate.yml"
+  /sources/{id}/deactivate:
+    $ref: "./paths/sources/deactivate.yml"
   /sources/{id}/keys:
     $ref: "./paths/sources/keys/keys.yml"
   /sources/{id}/keys/{keyID}:

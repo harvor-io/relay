@@ -1,0 +1,36 @@
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: The source's UUID.
+    schema:
+      type: string
+      format: uuid
+
+post:
+  operationId: deactivateSource
+  summary: Deactivate a source
+  description: >-
+    Marks the source as inactive, so it can no longer ingest events, without
+    deleting it.
+  tags:
+    - Sources
+  responses:
+    "200":
+      description: The updated source.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Source"
+    "400":
+      description: The ID is not a valid UUID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No source exists with that ID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"

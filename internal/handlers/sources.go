@@ -28,9 +28,13 @@ func (h *SourceHandler) RegisterRoutes(r chi.Router) {
 	r.Route("/sources", func(r chi.Router) {
 		r.Get("/", h.ListSources)
 		r.Post("/", h.CreateSource)
-		r.Get("/{id}", h.GetSource)
-		r.Patch("/{id}", h.UpdateSource)
-		r.Delete("/{id}", h.DeleteSource)
+		r.Route("/{id}", func(r chi.Router) {
+			r.Get("/", h.GetSource)
+			r.Patch("/", h.UpdateSource)
+			r.Delete("/", h.DeleteSource)
+			r.Post("/activate", h.ActivateSource)
+			r.Post("/deactivate", h.DeactivateSource)
+		})
 	})
 }
 
@@ -42,6 +46,7 @@ type sourceResource struct {
 	Name        string    `json:"name"`
 	Slug        string    `json:"slug"`
 	Description *string   `json:"description"`
+	IsActive    bool      `json:"is_active"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -52,6 +57,7 @@ func newSourceResource(s *models.Source) sourceResource {
 		Name:        s.Name,
 		Slug:        s.Slug,
 		Description: s.Description,
+		IsActive:    s.IsActive,
 		CreatedAt:   s.CreatedAt,
 		UpdatedAt:   s.UpdatedAt,
 	}
@@ -163,6 +169,34 @@ func (h *SourceHandler) DeleteSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// ActivateSource marks a source as active.
+func (h *SourceHandler) ActivateSource(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlUUID(w, r)
+	if !ok {
+		return
+	}
+	source, err := h.sources.Activate(r.Context(), id)
+	if err != nil {
+		renderSourceError(w, r, err)
+		return
+	}
+	render.JSON(w, r, newSourceResource(source))
+}
+
+// DeactivateSource marks a source as inactive.
+func (h *SourceHandler) DeactivateSource(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlUUID(w, r)
+	if !ok {
+		return
+	}
+	source, err := h.sources.Deactivate(r.Context(), id)
+	if err != nil {
+		renderSourceError(w, r, err)
+		return
+	}
+	render.JSON(w, r, newSourceResource(source))
 }
 
 // renderSourceError maps the errors returned by services.SourceService onto

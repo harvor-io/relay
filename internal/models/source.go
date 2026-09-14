@@ -31,6 +31,11 @@ type Source struct {
 	// and why it exists. It is nil when no description has been provided.
 	Description *string
 
+	// IsActive reports whether the Source currently accepts ingested events.
+	// Deactivating a Source without deleting it lets ingestion be paused
+	// while keeping its history, keys, and configuration intact.
+	IsActive bool
+
 	// CreatedAt is the moment the Source was first registered.
 	CreatedAt time.Time
 

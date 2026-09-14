@@ -101,7 +101,8 @@ func renderIngestError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, services.ErrIngestEnvelopeIDTaken):
 		renderError(w, r, http.StatusConflict, err.Error())
-	case errors.Is(err, services.ErrIngestTypeRequired),
+	case errors.Is(err, services.ErrIngestSourceNotActive),
+		errors.Is(err, services.ErrIngestTypeRequired),
 		errors.Is(err, services.ErrIngestTypeInvalid),
 		errors.Is(err, services.ErrIngestTypeTooLong),
 		errors.Is(err, services.ErrIngestDataRequired),

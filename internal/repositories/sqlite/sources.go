@@ -27,7 +27,7 @@ func NewSourceRepository(db *sql.DB) *SourceRepository {
 	return &SourceRepository{db: db}
 }
 
-const sourceColumns = `id, name, slug, description, created_at, updated_at`
+const sourceColumns = `id, name, slug, description, is_active, created_at, updated_at`
 
 // Create inserts a new source, assigning a UUIDv7 and timestamps when unset.
 func (r *SourceRepository) Create(ctx context.Context, source *models.Source) error {
@@ -45,11 +45,12 @@ func (r *SourceRepository) Create(ctx context.Context, source *models.Source) er
 	source.UpdatedAt = now
 
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO sources (`+sourceColumns+`) VALUES (?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO sources (`+sourceColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		source.ID.String(),
 		source.Name,
 		source.Slug,
 		sqlitedb.NullString(source.Description),
+		source.IsActive,
 		source.CreatedAt.Format(sqlitedb.TimeLayout),
 		source.UpdatedAt.Format(sqlitedb.TimeLayout),
 	)
@@ -103,10 +104,11 @@ func (r *SourceRepository) List(ctx context.Context) ([]models.Source, error) {
 func (r *SourceRepository) Update(ctx context.Context, source *models.Source) error {
 	source.UpdatedAt = time.Now().UTC()
 	res, err := r.db.ExecContext(ctx,
-		`UPDATE sources SET name = ?, slug = ?, description = ?, updated_at = ? WHERE id = ?`,
+		`UPDATE sources SET name = ?, slug = ?, description = ?, is_active = ?, updated_at = ? WHERE id = ?`,
 		source.Name,
 		source.Slug,
 		sqlitedb.NullString(source.Description),
+		source.IsActive,
 		source.UpdatedAt.Format(sqlitedb.TimeLayout),
 		source.ID.String(),
 	)
@@ -135,7 +137,7 @@ func scanSource(s sqlitedb.Scanner) (*models.Source, error) {
 		description          sql.NullString
 		createdAt, updatedAt string
 	)
-	if err := s.Scan(&idStr, &source.Name, &source.Slug, &description, &createdAt, &updatedAt); err != nil {
+	if err := s.Scan(&idStr, &source.Name, &source.Slug, &description, &source.IsActive, &createdAt, &updatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, repositories.ErrNotFound
 		}

@@ -65,7 +65,7 @@ post:
           schema:
             $ref: "../../schemas.yml#/components/schemas/Error"
     "422":
-      description: The request body failed validation.
+      description: The request body failed validation, or the source is not active.
       content:
         application/json:
           schema:

@@ -45,6 +45,10 @@ var (
 	// ErrIngestEnvelopeIDTaken means an explicitly supplied envelope_id
 	// already belongs to another envelope.
 	ErrIngestEnvelopeIDTaken = errors.New("envelope_id is already in use")
+
+	// ErrIngestSourceNotActive means the ingesting source has been
+	// deactivated and is not currently accepting events.
+	ErrIngestSourceNotActive = errors.New("source not active")
 )
 
 // IngestService is the event-ingestion use-case API: it accepts an event on
@@ -53,10 +57,11 @@ type IngestService interface {
 	// Ingest validates input and persists a new Envelope for source. Its
 	// type is combined with source's slug to form the topic
 	// ("<slug>.<type>") used later to route the Envelope to Destinations.
-	// It returns ErrIngestTypeRequired, ErrIngestTypeInvalid,
-	// ErrIngestTypeTooLong, or ErrIngestDataRequired when input is invalid,
-	// ErrIngestEnvelopeIDInvalid if a supplied envelope ID is not a UUID, or
-	// ErrIngestEnvelopeIDTaken if it already belongs to another Envelope.
+	// It returns ErrIngestSourceNotActive if source has been deactivated,
+	// ErrIngestTypeRequired, ErrIngestTypeInvalid, ErrIngestTypeTooLong, or
+	// ErrIngestDataRequired when input is invalid, ErrIngestEnvelopeIDInvalid
+	// if a supplied envelope ID is not a UUID, or ErrIngestEnvelopeIDTaken if
+	// it already belongs to another Envelope.
 	Ingest(ctx context.Context, source *models.Source, input IngestInput) (*models.Envelope, error)
 }
 
@@ -92,6 +97,10 @@ type IngestInput struct {
 
 // Ingest validates input and persists a new Envelope for source.
 func (s *ingestService) Ingest(ctx context.Context, source *models.Source, input IngestInput) (*models.Envelope, error) {
+	if !source.IsActive {
+		return nil, ErrIngestSourceNotActive
+	}
+
 	switch {
 	case input.Type == "":
 		return nil, ErrIngestTypeRequired

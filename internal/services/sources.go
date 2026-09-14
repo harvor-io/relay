@@ -90,6 +90,12 @@ type SourceService interface {
 	// ErrSourceDescriptionTooLong when input is invalid.
 	Update(ctx context.Context, id uuid.UUID, input UpdateSourceInput) (*models.Source, error)
 
+	// Activate marks the source as active, or returns ErrSourceNotFound.
+	Activate(ctx context.Context, id uuid.UUID) (*models.Source, error)
+
+	// Deactivate marks the source as inactive, or returns ErrSourceNotFound.
+	Deactivate(ctx context.Context, id uuid.UUID) (*models.Source, error)
+
 	// Delete removes the source with the given ID, or returns ErrSourceNotFound.
 	Delete(ctx context.Context, id uuid.UUID) error
 }
@@ -192,7 +198,7 @@ func (s *sourceService) Create(ctx context.Context, input CreateSourceInput) (*m
 		return nil, err
 	}
 
-	source := &models.Source{ID: id, Name: name, Slug: slg, Description: description}
+	source := &models.Source{ID: id, Name: name, Slug: slg, Description: description, IsActive: true}
 	if err := s.sources.Create(ctx, source); err != nil {
 		if errors.Is(err, repositories.ErrConflict) {
 			return nil, ErrSourceSlugTaken
@@ -231,6 +237,31 @@ func (s *sourceService) Update(ctx context.Context, id uuid.UUID, input UpdateSo
 		source.Description = description
 	}
 
+	if err := s.sources.Update(ctx, source); err != nil {
+		if errors.Is(err, repositories.ErrConflict) {
+			return nil, ErrSourceSlugTaken
+		}
+		return nil, mapSourceRepoError("update source", err)
+	}
+	return source, nil
+}
+
+// Activate marks the source as active, or returns ErrSourceNotFound.
+func (s *sourceService) Activate(ctx context.Context, id uuid.UUID) (*models.Source, error) {
+	return s.setActive(ctx, id, true)
+}
+
+// Deactivate marks the source as inactive, or returns ErrSourceNotFound.
+func (s *sourceService) Deactivate(ctx context.Context, id uuid.UUID) (*models.Source, error) {
+	return s.setActive(ctx, id, false)
+}
+
+func (s *sourceService) setActive(ctx context.Context, id uuid.UUID, active bool) (*models.Source, error) {
+	source, err := s.sources.Get(ctx, id)
+	if err != nil {
+		return nil, mapSourceRepoError("get source", err)
+	}
+	source.IsActive = active
 	if err := s.sources.Update(ctx, source); err != nil {
 		if errors.Is(err, repositories.ErrConflict) {
 			return nil, ErrSourceSlugTaken
