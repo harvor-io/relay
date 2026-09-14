@@ -29,6 +29,7 @@ func (h *SourceHandler) RegisterRoutes(r chi.Router) {
 		r.Get("/", h.ListSources)
 		r.Post("/", h.CreateSource)
 		r.Get("/{id}", h.GetSource)
+		r.Patch("/{id}", h.UpdateSource)
 		r.Delete("/{id}", h.DeleteSource)
 	})
 }
@@ -66,8 +67,17 @@ func newSourceResourceList(sources []models.Source) []sourceResource {
 
 // createSourceRequest is the accepted body for POST /sources.
 type createSourceRequest struct {
+	ID          string  `json:"id"`
 	Name        string  `json:"name"`
 	Slug        string  `json:"slug"`
+	Description *string `json:"description"`
+}
+
+// updateSourceRequest is the accepted body for PATCH /sources/{id}. A field
+// left out of the JSON body (or sent as null) is unchanged; to clear the
+// description, send an empty string rather than null.
+type updateSourceRequest struct {
+	Name        *string `json:"name"`
 	Description *string `json:"description"`
 }
 
@@ -104,6 +114,7 @@ func (h *SourceHandler) CreateSource(w http.ResponseWriter, r *http.Request) {
 	}
 
 	source, err := h.sources.Create(r.Context(), services.CreateSourceInput{
+		ID:          body.ID,
 		Name:        body.Name,
 		Slug:        body.Slug,
 		Description: body.Description,
@@ -114,6 +125,30 @@ func (h *SourceHandler) CreateSource(w http.ResponseWriter, r *http.Request) {
 	}
 
 	render.Status(r, http.StatusCreated)
+	render.JSON(w, r, newSourceResource(source))
+}
+
+// UpdateSource changes the name and/or description of a source.
+func (h *SourceHandler) UpdateSource(w http.ResponseWriter, r *http.Request) {
+	id, ok := urlUUID(w, r)
+	if !ok {
+		return
+	}
+
+	var body updateSourceRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		renderError(w, r, http.StatusBadRequest, "request body is not valid JSON")
+		return
+	}
+
+	source, err := h.sources.Update(r.Context(), id, services.UpdateSourceInput{
+		Name:        body.Name,
+		Description: body.Description,
+	})
+	if err != nil {
+		renderSourceError(w, r, err)
+		return
+	}
 	render.JSON(w, r, newSourceResource(source))
 }
 
@@ -136,13 +171,14 @@ func renderSourceError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, services.ErrSourceNotFound):
 		renderError(w, r, http.StatusNotFound, err.Error())
-	case errors.Is(err, services.ErrSourceSlugTaken):
+	case errors.Is(err, services.ErrSourceSlugTaken), errors.Is(err, services.ErrSourceIDTaken):
 		renderError(w, r, http.StatusConflict, err.Error())
 	case errors.Is(err, services.ErrSourceNameRequired),
 		errors.Is(err, services.ErrSourceNameTooLong),
 		errors.Is(err, services.ErrSourceDescriptionTooLong),
 		errors.Is(err, services.ErrSourceSlugInvalid),
-		errors.Is(err, services.ErrSourceSlugUnderivable):
+		errors.Is(err, services.ErrSourceSlugUnderivable),
+		errors.Is(err, services.ErrSourceIDInvalid):
 		renderError(w, r, http.StatusUnprocessableEntity, err.Error())
 	default:
 		renderError(w, r, http.StatusInternalServerError, "internal server error")

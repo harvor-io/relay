@@ -20,7 +20,8 @@ post:
   description: >-
     Creates a new source. Surrounding whitespace is trimmed from every field;
     a description that is empty after trimming is stored as null. When no slug
-    is supplied, a unique URL-safe slug is derived from the name.
+    is supplied, a unique URL-safe slug is derived from the name. When no ID
+    is supplied, a UUIDv7 is generated.
   tags:
     - Sources
   requestBody:
@@ -43,7 +44,7 @@ post:
           schema:
             $ref: "../../schemas.yml#/components/schemas/Error"
     "409":
-      description: The requested slug is already in use.
+      description: The requested slug or ID is already in use.
       content:
         application/json:
           schema:

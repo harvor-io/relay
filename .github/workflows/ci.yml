@@ -68,6 +68,46 @@ jobs:
         with:
           version: v2.9.0
 
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Start relay
+        run: |
+          go run ./cmd/relay serve &
+          echo $! > relay.pid
+        env:
+          DATABASE_URL: file:${{ runner.temp }}/relay-e2e.db
+          # Test-only key; nothing encrypted with it outlives this job.
+          SECRETS_ENCRYPTION_KEY: PMR/hf5+zhUN5AMEnBHC3l+2n7jcms8f2EfpuFf9MvU=
+          LOG_FORMAT: text
+      - name: Wait for relay to be ready
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/api/v1/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "relay did not become ready in time" >&2
+          exit 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - run: npm ci
+        working-directory: e2e
+      - run: npm test
+        working-directory: e2e
+      - name: Stop relay
+        if: always()
+        run: kill "$(cat relay.pid)" 2>/dev/null || true
+
   docker-build:
     name: Docker build
     runs-on: ubuntu-latest

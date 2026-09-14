@@ -43,9 +43,10 @@ type Source struct {
 // Source. A Source may have many keys, for example to support rotation
 // without downtime.
 type SourceKey struct {
-	// ID is the public identifier of the key. Unlike SecretID, it is safe to
-	// expose to clients and does not grant access to the key material.
-	ID string
+	// ID is the public identifier of the key. It is a UUIDv7, so the value
+	// is also roughly time-ordered by creation. Unlike SecretID, it is safe
+	// to expose to clients and does not grant access to the key material.
+	ID uuid.UUID
 
 	// SourceID is the Source this key belongs to.
 	SourceID uuid.UUID

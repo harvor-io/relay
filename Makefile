@@ -1,4 +1,4 @@
-.PHONY: help build up down nuke logs run fix fmt lint vet test check coverage coverage-html
+.PHONY: help build up down nuke logs run fix fmt lint vet test check coverage coverage-html e2e-install e2e
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -50,3 +50,11 @@ coverage: ## Coverage with a per-function summary
 
 coverage-html: coverage ## Open the coverage report in a browser
 	go tool cover -html=coverage.out
+
+## --- E2E ---
+
+e2e-install: ## Install e2e test dependencies
+	cd e2e && npm install
+
+e2e: ## Run black-box Playwright tests against a server you already started (make up / make run)
+	cd e2e && npm test

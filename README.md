@@ -1,5 +1,7 @@
 # Relay
 
+[![Stability: Alpha](https://img.shields.io/badge/stability-alpha-f59e0b)](https://docs.harvor.io/reference/stability-labels)
+
 **Open-source event routing for your infrastructure.**
 
 Relay is a lightweight, self-hosted event ingestion and routing service from [Harvor](https://harvor.io).
@@ -9,9 +11,9 @@ Applications publish events to Relay, and Relay handles getting them where they 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for an overview of how Relay is put together.
 
 > [!WARNING]
-> **Work in progress**
+> **Alpha**
 >
-> Relay is under active development and is not yet ready for production use. APIs, configuration formats, and behavior may change.
+> Relay carries Harvor's [Alpha stability label](https://docs.harvor.io/reference/stability-labels): early and experimental, not yet ready for production use. Not all planned features are implemented yet, and APIs, configuration formats, and behavior may still change as we learn.
 >
 > Contributions, feedback, and ideas are welcome.
 

@@ -33,6 +33,49 @@ get:
           schema:
             $ref: "../../schemas.yml#/components/schemas/Error"
 
+patch:
+  operationId: updateSource
+  summary: Update a source
+  description: >-
+    Updates the name and/or description of an existing source. Fields left
+    out of the request body (or sent as null) are unchanged. Surrounding
+    whitespace is trimmed; a description that is empty after trimming clears
+    it, so to leave the description untouched, omit it rather than sending an
+    empty string.
+  tags:
+    - Sources
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../../schemas.yml#/components/schemas/UpdateSource"
+  responses:
+    "200":
+      description: The updated source.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Source"
+    "400":
+      description: The ID is not a valid UUID, or the request body is not valid JSON.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No source exists with that ID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "422":
+      description: The request body failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+
 delete:
   operationId: deleteSource
   summary: Delete a source

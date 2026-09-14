@@ -16,7 +16,7 @@ type SourceKeyRepository interface {
 	Create(ctx context.Context, key *models.SourceKey) error
 
 	// Get returns the SourceKey with the given ID, or ErrNotFound.
-	Get(ctx context.Context, id string) (*models.SourceKey, error)
+	Get(ctx context.Context, id uuid.UUID) (*models.SourceKey, error)
 
 	// ListBySource returns every SourceKey belonging to sourceID, ordered
 	// by name.
@@ -29,5 +29,5 @@ type SourceKeyRepository interface {
 
 	// Delete removes the SourceKey with the given ID, returning
 	// ErrNotFound if it does not exist.
-	Delete(ctx context.Context, id string) error
+	Delete(ctx context.Context, id uuid.UUID) error
 }

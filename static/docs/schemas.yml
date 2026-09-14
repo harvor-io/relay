@@ -52,6 +52,14 @@ components:
       required:
         - name
       properties:
+        id:
+          type: string
+          format: uuid
+          description: >-
+            Optional client-supplied UUID for the source. When omitted, a
+            UUIDv7 is generated. When supplied, it must not already belong to
+            another source.
+          example: 0192a5c8-1f4e-7c3a-9b2d-3e4f5a6b7c8d
         name:
           type: string
           description: Human-readable label for the source. Required.
@@ -69,6 +77,23 @@ components:
           description: Optional free-form explanation.
           example: Order events from the storefront.
 
+    UpdateSource:
+      type: object
+      properties:
+        name:
+          type: string
+          description: >-
+            New human-readable label for the source. Omit to leave the name
+            unchanged.
+          example: orders
+        description:
+          type: string
+          nullable: true
+          description: >-
+            New free-form explanation. Omit to leave the description
+            unchanged; a value that is empty after trimming clears it.
+          example: Order events from the storefront.
+
     SourceKey:
       type: object
       required:
@@ -81,7 +106,8 @@ components:
       properties:
         id:
           type: string
-          description: Stable unique identifier for the key.
+          format: uuid
+          description: Stable unique identifier for the key (UUIDv7).
           example: 0192a5c8-2a5f-7b3c-8d1e-4f5a6b7c8d9e
         source_id:
           type: string
@@ -109,6 +135,14 @@ components:
       required:
         - name
       properties:
+        id:
+          type: string
+          format: uuid
+          description: >-
+            Optional client-supplied UUID for the key. When omitted, a
+            UUIDv7 is generated. When supplied, it must not already belong to
+            another key.
+          example: 0192a5c8-2a5f-7b3c-8d1e-4f5a6b7c8d9e
         name:
           type: string
           description: Human-readable label for the key. Required.

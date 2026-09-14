@@ -53,7 +53,7 @@ type sourceKeyResource struct {
 
 func newSourceKeyResource(k *models.SourceKey) sourceKeyResource {
 	return sourceKeyResource{
-		ID:        k.ID,
+		ID:        k.ID.String(),
 		SourceID:  k.SourceID.String(),
 		Name:      k.Name,
 		IsActive:  k.IsActive,
@@ -80,6 +80,7 @@ type createdSourceKeyResource struct {
 
 // createSourceKeyRequest is the accepted body for POST /sources/{id}/keys.
 type createSourceKeyRequest struct {
+	ID   string `json:"id"`
 	Name string `json:"name"`
 }
 
@@ -111,7 +112,7 @@ func (h *SourceKeyHandler) CreateSourceKey(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	key, secret, err := h.keys.Create(r.Context(), sourceID, services.CreateSourceKeyInput{Name: body.Name})
+	key, secret, err := h.keys.Create(r.Context(), sourceID, services.CreateSourceKeyInput{ID: body.ID, Name: body.Name})
 	if err != nil {
 		renderSourceKeyError(w, r, err)
 		return
@@ -130,7 +131,11 @@ func (h *SourceKeyHandler) GetSourceKey(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	key, err := h.keys.Get(r.Context(), sourceID, chi.URLParam(r, "keyID"))
+	keyID, ok := urlUUIDParam(w, r, "keyID")
+	if !ok {
+		return
+	}
+	key, err := h.keys.Get(r.Context(), sourceID, keyID)
 	if err != nil {
 		renderSourceKeyError(w, r, err)
 		return
@@ -144,7 +149,11 @@ func (h *SourceKeyHandler) ActivateSourceKey(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
-	key, err := h.keys.Activate(r.Context(), sourceID, chi.URLParam(r, "keyID"))
+	keyID, ok := urlUUIDParam(w, r, "keyID")
+	if !ok {
+		return
+	}
+	key, err := h.keys.Activate(r.Context(), sourceID, keyID)
 	if err != nil {
 		renderSourceKeyError(w, r, err)
 		return
@@ -158,7 +167,11 @@ func (h *SourceKeyHandler) DeactivateSourceKey(w http.ResponseWriter, r *http.Re
 	if !ok {
 		return
 	}
-	key, err := h.keys.Deactivate(r.Context(), sourceID, chi.URLParam(r, "keyID"))
+	keyID, ok := urlUUIDParam(w, r, "keyID")
+	if !ok {
+		return
+	}
+	key, err := h.keys.Deactivate(r.Context(), sourceID, keyID)
 	if err != nil {
 		renderSourceKeyError(w, r, err)
 		return
@@ -172,7 +185,11 @@ func (h *SourceKeyHandler) DeleteSourceKey(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	if err := h.keys.Delete(r.Context(), sourceID, chi.URLParam(r, "keyID")); err != nil {
+	keyID, ok := urlUUIDParam(w, r, "keyID")
+	if !ok {
+		return
+	}
+	if err := h.keys.Delete(r.Context(), sourceID, keyID); err != nil {
 		renderSourceKeyError(w, r, err)
 		return
 	}
@@ -185,8 +202,11 @@ func renderSourceKeyError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, services.ErrSourceNotFound), errors.Is(err, services.ErrSourceKeyNotFound):
 		renderError(w, r, http.StatusNotFound, err.Error())
+	case errors.Is(err, services.ErrSourceKeyIDTaken):
+		renderError(w, r, http.StatusConflict, err.Error())
 	case errors.Is(err, services.ErrSourceKeyNameRequired),
-		errors.Is(err, services.ErrSourceKeyNameTooLong):
+		errors.Is(err, services.ErrSourceKeyNameTooLong),
+		errors.Is(err, services.ErrSourceKeyIDInvalid):
 		renderError(w, r, http.StatusUnprocessableEntity, err.Error())
 	default:
 		renderError(w, r, http.StatusInternalServerError, "internal server error")

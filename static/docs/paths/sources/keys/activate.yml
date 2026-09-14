@@ -9,9 +9,10 @@ parameters:
   - name: keyID
     in: path
     required: true
-    description: The key's ID.
+    description: The key's UUID.
     schema:
       type: string
+      format: uuid
 
 post:
   operationId: activateSourceKey

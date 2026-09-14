@@ -24,9 +24,16 @@ func renderError(w http.ResponseWriter, r *http.Request, status int, message str
 // urlUUID parses the {id} path parameter as a UUID. On failure it writes a 400
 // response and returns ok == false, so the caller can simply return.
 func urlUUID(w http.ResponseWriter, r *http.Request) (id uuid.UUID, ok bool) {
-	id, err := uuid.FromString(chi.URLParam(r, "id"))
+	return urlUUIDParam(w, r, "id")
+}
+
+// urlUUIDParam parses the named path parameter as a UUID. On failure it
+// writes a 400 response and returns ok == false, so the caller can simply
+// return.
+func urlUUIDParam(w http.ResponseWriter, r *http.Request, name string) (id uuid.UUID, ok bool) {
+	id, err := uuid.FromString(chi.URLParam(r, name))
 	if err != nil {
-		renderError(w, r, http.StatusBadRequest, "invalid id: must be a UUID")
+		renderError(w, r, http.StatusBadRequest, "invalid "+name+": must be a UUID")
 		return uuid.Nil, false
 	}
 	return id, true

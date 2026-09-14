@@ -53,6 +53,13 @@ var (
 	// ErrSourceSlugUnderivable means no slug was supplied and none could be
 	// derived from the name (for example, a name with no alphanumerics).
 	ErrSourceSlugUnderivable = errors.New("cannot derive a slug from the source name; provide one explicitly")
+
+	// ErrSourceIDTaken means an explicitly supplied ID already belongs to
+	// another source.
+	ErrSourceIDTaken = errors.New("source id is already in use")
+
+	// ErrSourceIDInvalid means an explicitly supplied ID is not a valid UUID.
+	ErrSourceIDInvalid = errors.New("source id must be a UUID")
 )
 
 // SourceService is the source-management use-case API: the operations callers
@@ -66,9 +73,17 @@ type SourceService interface {
 
 	// Create validates input and persists a new source. It returns
 	// ErrSourceNameRequired, ErrSourceNameTooLong, ErrSourceDescriptionTooLong,
-	// ErrSourceSlugInvalid, ErrSourceSlugUnderivable, or ErrSourceSlugTaken
-	// when input is invalid or conflicts with an existing source.
+	// ErrSourceSlugInvalid, ErrSourceSlugUnderivable, ErrSourceIDInvalid,
+	// ErrSourceSlugTaken, or ErrSourceIDTaken when input is invalid or
+	// conflicts with an existing source.
 	Create(ctx context.Context, input CreateSourceInput) (*models.Source, error)
+
+	// Update changes the name and/or description of the source with the given
+	// ID. Fields left nil in input are unchanged; a non-nil Description that
+	// is empty after trimming clears it, matching Create. It returns
+	// ErrSourceNotFound, ErrSourceNameRequired, ErrSourceNameTooLong, or
+	// ErrSourceDescriptionTooLong when input is invalid.
+	Update(ctx context.Context, id uuid.UUID, input UpdateSourceInput) (*models.Source, error)
 
 	// Delete removes the source with the given ID, or returns ErrSourceNotFound.
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -97,6 +112,21 @@ type CreateSourceInput struct {
 	// Slug is optional. When empty, the service derives a unique URL-safe slug
 	// from Name. When set, it must already be URL-safe and unused.
 	Slug string
+
+	// ID is optional. When empty, the service generates a UUIDv7. When set,
+	// it must be a valid UUID and must not already belong to another source.
+	ID string
+}
+
+// UpdateSourceInput carries the caller-supplied fields to change on an
+// existing source. A nil field is left unchanged. Name, when supplied, is
+// trimmed and validated the same way as on Create. Description, when
+// supplied, is trimmed and normalised the same way as on Create — including
+// that a value which is empty after trimming clears the description; to
+// leave the description untouched, leave this nil rather than supplying "".
+type UpdateSourceInput struct {
+	Name        *string
+	Description *string
 }
 
 // Get returns the source with the given ID, or ErrSourceNotFound.
@@ -139,12 +169,55 @@ func (s *sourceService) Create(ctx context.Context, input CreateSourceInput) (*m
 		return nil, err
 	}
 
-	source := &models.Source{Name: name, Slug: slg, Description: description}
+	id, err := s.resolveID(ctx, input.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	source := &models.Source{ID: id, Name: name, Slug: slg, Description: description}
 	if err := s.sources.Create(ctx, source); err != nil {
 		if errors.Is(err, repositories.ErrConflict) {
 			return nil, ErrSourceSlugTaken
 		}
 		return nil, fmt.Errorf("services: create source: %w", err)
+	}
+	return source, nil
+}
+
+// Update changes the name and/or description of the source with the given
+// ID, leaving fields nil in input unchanged. It returns ErrSourceNotFound,
+// ErrSourceNameRequired, ErrSourceNameTooLong, or ErrSourceDescriptionTooLong
+// when input is invalid.
+func (s *sourceService) Update(ctx context.Context, id uuid.UUID, input UpdateSourceInput) (*models.Source, error) {
+	source, err := s.sources.Get(ctx, id)
+	if err != nil {
+		return nil, mapSourceRepoError("get source", err)
+	}
+
+	if input.Name != nil {
+		name := strings.TrimSpace(*input.Name)
+		switch {
+		case name == "":
+			return nil, ErrSourceNameRequired
+		case len(name) > maxSourceNameLength:
+			return nil, ErrSourceNameTooLong
+		}
+		source.Name = name
+	}
+
+	if input.Description != nil {
+		description, err := normaliseDescription(input.Description)
+		if err != nil {
+			return nil, err
+		}
+		source.Description = description
+	}
+
+	if err := s.sources.Update(ctx, source); err != nil {
+		if errors.Is(err, repositories.ErrConflict) {
+			return nil, ErrSourceSlugTaken
+		}
+		return nil, mapSourceRepoError("update source", err)
 	}
 	return source, nil
 }
@@ -201,6 +274,42 @@ func (s *sourceService) slugTaken(ctx context.Context, slg string) (bool, error)
 		return false, nil
 	default:
 		return false, fmt.Errorf("services: look up slug: %w", err)
+	}
+}
+
+// resolveID returns the UUID to persist for a new source. An empty provided
+// value returns the nil UUID, so the repository generates a UUIDv7. A
+// non-empty value must parse as a UUID and must not already be in use.
+func (s *sourceService) resolveID(ctx context.Context, provided string) (uuid.UUID, error) {
+	provided = strings.TrimSpace(provided)
+	if provided == "" {
+		return uuid.Nil, nil
+	}
+
+	id, err := uuid.FromString(provided)
+	if err != nil {
+		return uuid.Nil, ErrSourceIDInvalid
+	}
+
+	taken, err := s.idTaken(ctx, id)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if taken {
+		return uuid.Nil, ErrSourceIDTaken
+	}
+	return id, nil
+}
+
+// idTaken reports whether a source already uses id.
+func (s *sourceService) idTaken(ctx context.Context, id uuid.UUID) (bool, error) {
+	switch _, err := s.sources.Get(ctx, id); {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, repositories.ErrNotFound):
+		return false, nil
+	default:
+		return false, fmt.Errorf("services: look up source id: %w", err)
 	}
 }
 

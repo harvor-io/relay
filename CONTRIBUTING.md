@@ -45,6 +45,7 @@ the HTTP API.
 | [internal/database/migrations/](internal/database/migrations/) | SQL migration files, embedded with `embed.FS`, one sub-directory per engine |
 | [internal/repositories/](internal/repositories/) | Persistence interfaces and their SQLite implementations |
 | [static/](static/) | OpenAPI spec, embedded into the binary with `embed.FS` |
+| [e2e/](e2e/) | Black-box Playwright tests that exercise the built binary over HTTP |
 
 ### Configuration
 
@@ -133,6 +134,28 @@ make check
 
 CI additionally runs `go build ./...` and a Docker image build. Please make
 sure `make test` and `make check` pass before opening a pull request.
+
+### Black-box (Playwright) tests
+
+[e2e/](e2e/) holds high-level tests that speak plain HTTP to a running Relay
+server, exercising the happy path of each endpoint end to end. They don't
+start a server themselves — start one first (`make up` or `make run`), then
+point the suite at it. They need Node.js:
+
+```sh
+make up           # or: make run
+make e2e-install  # once, or whenever e2e/package.json changes
+make e2e          # defaults to http://localhost:8080/api/v1
+```
+
+Point the suite at a different instance with `BASE_URL`:
+
+```sh
+BASE_URL=http://localhost:9090/api/v1/ npm --prefix e2e test
+```
+
+Add a spec alongside the existing ones in [e2e/tests/](e2e/tests/) when a new
+endpoint's happy path should be covered here too.
 
 ## Adding an endpoint
 

@@ -40,6 +40,14 @@ var (
 	// ErrSourceKeyNameTooLong means the supplied name exceeded the length
 	// bound.
 	ErrSourceKeyNameTooLong = fmt.Errorf("source key name must be at most %d characters", maxSourceKeyNameLength)
+
+	// ErrSourceKeyIDTaken means an explicitly supplied ID already belongs to
+	// another key.
+	ErrSourceKeyIDTaken = errors.New("source key id is already in use")
+
+	// ErrSourceKeyIDInvalid means an explicitly supplied ID is not a valid
+	// UUID.
+	ErrSourceKeyIDInvalid = errors.New("source key id must be a UUID")
 )
 
 // SourceKeyService is the source-key-management use-case API: the operations
@@ -50,27 +58,28 @@ type SourceKeyService interface {
 	// Create validates input, generates and encrypts a new secret, and
 	// persists a key for the given source. It returns the key together with
 	// the plaintext secret, hex-encoded. Returns ErrSourceNotFound if the
-	// source does not exist, or ErrSourceKeyNameRequired / ErrSourceKeyNameTooLong
-	// if input is invalid.
+	// source does not exist, ErrSourceKeyNameRequired / ErrSourceKeyNameTooLong
+	// / ErrSourceKeyIDInvalid if input is invalid, or ErrSourceKeyIDTaken if
+	// an explicitly supplied ID is already in use.
 	Create(ctx context.Context, sourceID uuid.UUID, input CreateSourceKeyInput) (*models.SourceKey, string, error)
 
 	// Get returns the key with the given ID belonging to sourceID, or
 	// ErrSourceKeyNotFound.
-	Get(ctx context.Context, sourceID uuid.UUID, id string) (*models.SourceKey, error)
+	Get(ctx context.Context, sourceID, id uuid.UUID) (*models.SourceKey, error)
 
 	// ListBySource returns every key belonging to sourceID, ordered by name.
 	// It returns ErrSourceNotFound if the source does not exist.
 	ListBySource(ctx context.Context, sourceID uuid.UUID) ([]models.SourceKey, error)
 
 	// Activate marks the key as active, or returns ErrSourceKeyNotFound.
-	Activate(ctx context.Context, sourceID uuid.UUID, id string) (*models.SourceKey, error)
+	Activate(ctx context.Context, sourceID, id uuid.UUID) (*models.SourceKey, error)
 
 	// Deactivate marks the key as inactive, or returns ErrSourceKeyNotFound.
-	Deactivate(ctx context.Context, sourceID uuid.UUID, id string) (*models.SourceKey, error)
+	Deactivate(ctx context.Context, sourceID, id uuid.UUID) (*models.SourceKey, error)
 
 	// Delete removes the key and its underlying secret, or returns
 	// ErrSourceKeyNotFound.
-	Delete(ctx context.Context, sourceID uuid.UUID, id string) error
+	Delete(ctx context.Context, sourceID, id uuid.UUID) error
 }
 
 // sourceKeyService is the default SourceKeyService, backed by a
@@ -101,6 +110,10 @@ func NewSourceKeyService(
 // key. The service trims surrounding whitespace from Name.
 type CreateSourceKeyInput struct {
 	Name string
+
+	// ID is optional. When empty, the service generates a UUIDv7. When set,
+	// it must be a valid UUID and must not already belong to another key.
+	ID string
 }
 
 // Create validates input, generates a random secret, encrypts and stores it,
@@ -119,6 +132,11 @@ func (s *sourceKeyService) Create(ctx context.Context, sourceID uuid.UUID, input
 		return nil, "", ErrSourceKeyNameTooLong
 	}
 
+	id, err := s.resolveID(ctx, input.ID)
+	if err != nil {
+		return nil, "", err
+	}
+
 	raw := make([]byte, sourceKeySecretLength)
 	if _, err := rand.Read(raw); err != nil {
 		return nil, "", fmt.Errorf("services: generate source key secret: %w", err)
@@ -134,6 +152,7 @@ func (s *sourceKeyService) Create(ctx context.Context, sourceID uuid.UUID, input
 	}
 
 	key := &models.SourceKey{
+		ID:       id,
 		SourceID: sourceID,
 		SecretID: secret.ID,
 		Name:     name,
@@ -166,7 +185,7 @@ func (s *sourceKeyService) decryptSecret(ctx context.Context, secretID uuid.UUID
 
 // Get returns the key with the given ID belonging to sourceID, or
 // ErrSourceKeyNotFound.
-func (s *sourceKeyService) Get(ctx context.Context, sourceID uuid.UUID, id string) (*models.SourceKey, error) {
+func (s *sourceKeyService) Get(ctx context.Context, sourceID, id uuid.UUID) (*models.SourceKey, error) {
 	return s.getOwned(ctx, sourceID, id)
 }
 
@@ -184,16 +203,16 @@ func (s *sourceKeyService) ListBySource(ctx context.Context, sourceID uuid.UUID)
 }
 
 // Activate marks the key as active, or returns ErrSourceKeyNotFound.
-func (s *sourceKeyService) Activate(ctx context.Context, sourceID uuid.UUID, id string) (*models.SourceKey, error) {
+func (s *sourceKeyService) Activate(ctx context.Context, sourceID, id uuid.UUID) (*models.SourceKey, error) {
 	return s.setActive(ctx, sourceID, id, true)
 }
 
 // Deactivate marks the key as inactive, or returns ErrSourceKeyNotFound.
-func (s *sourceKeyService) Deactivate(ctx context.Context, sourceID uuid.UUID, id string) (*models.SourceKey, error) {
+func (s *sourceKeyService) Deactivate(ctx context.Context, sourceID, id uuid.UUID) (*models.SourceKey, error) {
 	return s.setActive(ctx, sourceID, id, false)
 }
 
-func (s *sourceKeyService) setActive(ctx context.Context, sourceID uuid.UUID, id string, active bool) (*models.SourceKey, error) {
+func (s *sourceKeyService) setActive(ctx context.Context, sourceID, id uuid.UUID, active bool) (*models.SourceKey, error) {
 	key, err := s.getOwned(ctx, sourceID, id)
 	if err != nil {
 		return nil, err
@@ -208,7 +227,7 @@ func (s *sourceKeyService) setActive(ctx context.Context, sourceID uuid.UUID, id
 // Delete removes the key and its underlying secret, or returns
 // ErrSourceKeyNotFound. The secret is removed on a best-effort basis after
 // the key row is gone; a secret that is already missing is not an error.
-func (s *sourceKeyService) Delete(ctx context.Context, sourceID uuid.UUID, id string) error {
+func (s *sourceKeyService) Delete(ctx context.Context, sourceID, id uuid.UUID) error {
 	key, err := s.getOwned(ctx, sourceID, id)
 	if err != nil {
 		return err
@@ -225,7 +244,7 @@ func (s *sourceKeyService) Delete(ctx context.Context, sourceID uuid.UUID, id st
 // getOwned returns the key with the given ID, scoped to sourceID.
 // ErrSourceKeyNotFound covers both a missing key and one that belongs to a
 // different source, so callers cannot distinguish the two.
-func (s *sourceKeyService) getOwned(ctx context.Context, sourceID uuid.UUID, id string) (*models.SourceKey, error) {
+func (s *sourceKeyService) getOwned(ctx context.Context, sourceID, id uuid.UUID) (*models.SourceKey, error) {
 	key, err := s.keys.Get(ctx, id)
 	if err != nil {
 		return nil, mapSourceKeyRepoError("get source key", err)
@@ -234,6 +253,42 @@ func (s *sourceKeyService) getOwned(ctx context.Context, sourceID uuid.UUID, id 
 		return nil, ErrSourceKeyNotFound
 	}
 	return key, nil
+}
+
+// resolveID returns the UUID to persist for a new key. An empty provided
+// value returns the nil UUID, so the repository generates a UUIDv7. A
+// non-empty value must parse as a UUID and must not already be in use.
+func (s *sourceKeyService) resolveID(ctx context.Context, provided string) (uuid.UUID, error) {
+	provided = strings.TrimSpace(provided)
+	if provided == "" {
+		return uuid.Nil, nil
+	}
+
+	id, err := uuid.FromString(provided)
+	if err != nil {
+		return uuid.Nil, ErrSourceKeyIDInvalid
+	}
+
+	taken, err := s.keyIDTaken(ctx, id)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if taken {
+		return uuid.Nil, ErrSourceKeyIDTaken
+	}
+	return id, nil
+}
+
+// keyIDTaken reports whether a key already uses id.
+func (s *sourceKeyService) keyIDTaken(ctx context.Context, id uuid.UUID) (bool, error) {
+	switch _, err := s.keys.Get(ctx, id); {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, repositories.ErrNotFound):
+		return false, nil
+	default:
+		return false, fmt.Errorf("services: look up source key id: %w", err)
+	}
 }
 
 // mapSourceKeyRepoError converts a repository error into a service-level

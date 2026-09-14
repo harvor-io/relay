@@ -32,12 +32,12 @@ const sourceKeyColumns = `id, source_id, secret_id, name, is_active, created_at,
 // Create inserts a new source key, assigning an ID and timestamps when
 // unset.
 func (r *SourceKeyRepository) Create(ctx context.Context, key *models.SourceKey) error {
-	if key.ID == "" {
+	if key.ID.IsNil() {
 		id, err := uuid.NewV7()
 		if err != nil {
 			return fmt.Errorf("sqlite: new source key id: %w", err)
 		}
-		key.ID = id.String()
+		key.ID = id
 	}
 	now := time.Now().UTC()
 	if key.CreatedAt.IsZero() {
@@ -47,7 +47,7 @@ func (r *SourceKeyRepository) Create(ctx context.Context, key *models.SourceKey)
 
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO source_keys (`+sourceKeyColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		key.ID,
+		key.ID.String(),
 		key.SourceID.String(),
 		key.SecretID.String(),
 		key.Name,
@@ -65,9 +65,9 @@ func (r *SourceKeyRepository) Create(ctx context.Context, key *models.SourceKey)
 }
 
 // Get returns a single source key by ID.
-func (r *SourceKeyRepository) Get(ctx context.Context, id string) (*models.SourceKey, error) {
+func (r *SourceKeyRepository) Get(ctx context.Context, id uuid.UUID) (*models.SourceKey, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT `+sourceKeyColumns+` FROM source_keys WHERE id = ?`, id)
+		`SELECT `+sourceKeyColumns+` FROM source_keys WHERE id = ?`, id.String())
 	return scanSourceKey(row)
 }
 
@@ -105,7 +105,7 @@ func (r *SourceKeyRepository) Update(ctx context.Context, key *models.SourceKey)
 		key.Name,
 		key.IsActive,
 		key.UpdatedAt.Format(sqlitedb.TimeLayout),
-		key.ID,
+		key.ID.String(),
 	)
 	if err != nil {
 		return fmt.Errorf("sqlite: update source key: %w", err)
@@ -114,8 +114,8 @@ func (r *SourceKeyRepository) Update(ctx context.Context, key *models.SourceKey)
 }
 
 // Delete removes a source key by ID.
-func (r *SourceKeyRepository) Delete(ctx context.Context, id string) error {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM source_keys WHERE id = ?`, id)
+func (r *SourceKeyRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM source_keys WHERE id = ?`, id.String())
 	if err != nil {
 		return fmt.Errorf("sqlite: delete source key: %w", err)
 	}
@@ -124,16 +124,22 @@ func (r *SourceKeyRepository) Delete(ctx context.Context, id string) error {
 
 func scanSourceKey(s sqlitedb.Scanner) (*models.SourceKey, error) {
 	var (
-		key                      models.SourceKey
-		sourceIDStr, secretIDStr string
-		createdAt, updatedAt     string
+		key                             models.SourceKey
+		idStr, sourceIDStr, secretIDStr string
+		createdAt, updatedAt            string
 	)
-	if err := s.Scan(&key.ID, &sourceIDStr, &secretIDStr, &key.Name, &key.IsActive, &createdAt, &updatedAt); err != nil {
+	if err := s.Scan(&idStr, &sourceIDStr, &secretIDStr, &key.Name, &key.IsActive, &createdAt, &updatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, repositories.ErrNotFound
 		}
 		return nil, fmt.Errorf("sqlite: scan source key: %w", err)
 	}
+
+	id, err := uuid.FromString(idStr)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: parse source key id: %w", err)
+	}
+	key.ID = id
 
 	sourceID, err := uuid.FromString(sourceIDStr)
 	if err != nil {

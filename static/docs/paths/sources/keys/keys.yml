@@ -41,7 +41,8 @@ post:
   description: >-
     Generates a new key for the source. The response includes the plaintext
     secret exactly once; it is encrypted at rest and cannot be retrieved
-    again, so callers must store it when it is returned.
+    again, so callers must store it when it is returned. When no ID is
+    supplied, a UUIDv7 is generated.
   tags:
     - Source Keys
   requestBody:
@@ -65,6 +66,12 @@ post:
             $ref: "../../schemas.yml#/components/schemas/Error"
     "404":
       description: No source exists with that ID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "409":
+      description: The supplied key ID is already in use.
       content:
         application/json:
           schema:

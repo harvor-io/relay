@@ -1,0 +1,12 @@
+{
+  "name": "relay-e2e",
+  "private": true,
+  "description": "Black-box API tests that exercise the built Relay binary over HTTP",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.13.4"
+  }
+}
