@@ -1,0 +1,72 @@
+parameters:
+  - name: source
+    in: path
+    required: true
+    description: The ingesting source's UUID or slug.
+    schema:
+      type: string
+  - name: X-Relay-Signature
+    in: header
+    required: true
+    description: >-
+      Hex-encoded HMAC-SHA256 signature of the raw request body, computed
+      with the plaintext secret of one of the source's keys. Checked against
+      every active key belonging to the source; a match with any one of them
+      is accepted, which supports rotating keys without downtime.
+    schema:
+      type: string
+
+post:
+  operationId: ingestEvent
+  summary: Ingest an event
+  description: >-
+    Accepts an event on behalf of source and stores it as an envelope for
+    later routing to destinations. The request must carry a valid
+    X-Relay-Signature header, verified against the source's active keys.
+  tags:
+    - Ingest
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../../schemas.yml#/components/schemas/NewIngestEvent"
+  responses:
+    "201":
+      description: The event was accepted and stored as an envelope.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Envelope"
+    "400":
+      description: The request body is not valid JSON.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "401":
+      description: >-
+        The X-Relay-Signature header is missing, or does not match any
+        active key belonging to the source.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No source exists with that ID or slug.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "409":
+      description: The supplied envelope_id is already in use.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
+    "422":
+      description: The request body failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"

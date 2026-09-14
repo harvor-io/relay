@@ -436,6 +436,86 @@ components:
             unchanged; a value that is empty after trimming clears it.
           example: Batched delivery of order events to the data warehouse.
 
+    Envelope:
+      type: object
+      required:
+        - id
+        - source_id
+        - source
+        - type
+        - topic
+        - data
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Stable unique identifier (UUIDv7).
+          example: 0192a5c8-4c7f-7e5b-9d3f-5a6b7c8d9e0f
+        source_id:
+          type: string
+          format: uuid
+          description: The source that produced this envelope.
+          example: 0192a5c8-1f4e-7c3a-9b2d-3e4f5a6b7c8d
+        source:
+          type: string
+          description: >-
+            The slug of the originating source, captured at the time the
+            envelope was created so it remains stable even if the source is
+            later renamed.
+          example: orders
+        type:
+          type: string
+          description: >-
+            The kind of event this envelope carries within its source.
+            Combined with source, it forms the topic ("<source>.<type>")
+            used to route the envelope to destinations.
+          example: order.created
+        topic:
+          type: string
+          description: >-
+            The routing key for this envelope, derived as "<source>.<type>".
+            Determines which destinations receive it.
+          example: orders.order.created
+        data:
+          description: The event payload, exactly as submitted.
+          example:
+            order_id: 42
+        created_at:
+          type: string
+          format: date-time
+          description: When the envelope was accepted into relay.
+
+    NewIngestEvent:
+      type: object
+      required:
+        - type
+        - data
+      properties:
+        type:
+          type: string
+          description: >-
+            The kind of event being ingested. Combined with the source's
+            slug, this forms the topic used to route the resulting envelope
+            to destinations ("<source>.<type>"). Must contain only
+            alphanumeric characters, ".", "_", or "-", with no spaces. It is
+            recommended to shape this as "<thing>.<action>", e.g.
+            "order.created" or "user.updated".
+          example: order.created
+        data:
+          description: The event payload. Required; may be any JSON value.
+          example:
+            order_id: 42
+        envelope_id:
+          type: string
+          format: uuid
+          description: >-
+            Optional client-supplied UUID for the resulting envelope, useful
+            for making ingestion idempotent (e.g. keying it off an event ID
+            already used upstream). When omitted, a UUIDv7 is generated.
+            When supplied, it must not already belong to another envelope.
+          example: 0192a5c8-4c7f-7e5b-9d3f-5a6b7c8d9e0f
+
     Error:
       type: object
       required:

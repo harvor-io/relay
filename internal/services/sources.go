@@ -68,6 +68,11 @@ type SourceService interface {
 	// Get returns the source with the given ID, or ErrSourceNotFound.
 	Get(ctx context.Context, id uuid.UUID) (*models.Source, error)
 
+	// GetByIDOrSlug returns the source identified by idOrSlug, trying it
+	// first as a UUID and falling back to a slug lookup when it does not
+	// parse as one. Returns ErrSourceNotFound if neither matches.
+	GetByIDOrSlug(ctx context.Context, idOrSlug string) (*models.Source, error)
+
 	// List returns every source, ordered by name.
 	List(ctx context.Context) ([]models.Source, error)
 
@@ -134,6 +139,19 @@ func (s *sourceService) Get(ctx context.Context, id uuid.UUID) (*models.Source, 
 	source, err := s.sources.Get(ctx, id)
 	if err != nil {
 		return nil, mapSourceRepoError("get source", err)
+	}
+	return source, nil
+}
+
+// GetByIDOrSlug returns the source identified by idOrSlug, trying it first as
+// a UUID and falling back to a slug lookup when it does not parse as one.
+func (s *sourceService) GetByIDOrSlug(ctx context.Context, idOrSlug string) (*models.Source, error) {
+	if id, err := uuid.FromString(idOrSlug); err == nil {
+		return s.Get(ctx, id)
+	}
+	source, err := s.sources.GetBySlug(ctx, idOrSlug)
+	if err != nil {
+		return nil, mapSourceRepoError("get source by slug", err)
 	}
 	return source, nil
 }

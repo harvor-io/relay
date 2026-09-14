@@ -29,9 +29,9 @@ type Envelope struct {
 	// Envelope's Topic.
 	Type string
 
-	// Message is the original message body, preserved verbatim as JSON so that
+	// Data is the original event payload, preserved verbatim as JSON so that
 	// it can be delivered downstream without loss of fidelity.
-	Message json.RawMessage
+	Data json.RawMessage
 
 	// CreatedAt is the moment the Envelope was accepted into relay.
 	CreatedAt time.Time

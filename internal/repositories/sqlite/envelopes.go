@@ -28,7 +28,7 @@ func NewEnvelopeRepository(db *sql.DB) *EnvelopeRepository {
 	return &EnvelopeRepository{db: db}
 }
 
-const envelopeColumns = `id, source_id, source, type, message, created_at`
+const envelopeColumns = `id, source_id, source, type, data, created_at`
 
 // Create inserts a new envelope, assigning a UUIDv7 and CreatedAt when unset.
 func (r *EnvelopeRepository) Create(ctx context.Context, envelope *models.Envelope) error {
@@ -43,9 +43,9 @@ func (r *EnvelopeRepository) Create(ctx context.Context, envelope *models.Envelo
 		envelope.CreatedAt = time.Now().UTC()
 	}
 
-	message := envelope.Message
-	if len(message) == 0 {
-		message = json.RawMessage("null")
+	data := envelope.Data
+	if len(data) == 0 {
+		data = json.RawMessage("null")
 	}
 
 	_, err := r.db.ExecContext(ctx,
@@ -54,7 +54,7 @@ func (r *EnvelopeRepository) Create(ctx context.Context, envelope *models.Envelo
 		envelope.SourceID.String(),
 		envelope.Source,
 		envelope.Type,
-		string(message),
+		string(data),
 		envelope.CreatedAt.Format(sqlitedb.TimeLayout),
 	)
 	if err != nil {
@@ -98,10 +98,10 @@ func scanEnvelope(s sqlitedb.Scanner) (*models.Envelope, error) {
 		envelope  models.Envelope
 		idStr     string
 		sourceID  string
-		message   string
+		data      string
 		createdAt string
 	)
-	if err := s.Scan(&idStr, &sourceID, &envelope.Source, &envelope.Type, &message, &createdAt); err != nil {
+	if err := s.Scan(&idStr, &sourceID, &envelope.Source, &envelope.Type, &data, &createdAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, repositories.ErrNotFound
 		}
@@ -119,7 +119,7 @@ func scanEnvelope(s sqlitedb.Scanner) (*models.Envelope, error) {
 		return nil, fmt.Errorf("sqlite: parse envelope source_id: %w", err)
 	}
 
-	envelope.Message = json.RawMessage(message)
+	envelope.Data = json.RawMessage(data)
 	if envelope.CreatedAt, err = sqlitedb.ParseTime(createdAt); err != nil {
 		return nil, fmt.Errorf("sqlite: parse envelope created_at: %w", err)
 	}

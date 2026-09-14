@@ -19,7 +19,7 @@ CREATE TABLE destinations (
 CREATE TABLE envelopes (
     id          TEXT PRIMARY KEY,
     routing_key TEXT NOT NULL,
-    message     TEXT NOT NULL,
+    data        TEXT NOT NULL,
     created_at  TEXT NOT NULL
 );
 

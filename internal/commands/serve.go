@@ -105,6 +105,9 @@ func ServeCommand() *cli.Command {
 
 			destinationService := services.NewDestinationService(destinationRepo, secretStore, enc)
 
+			ingestService := services.NewIngestService(sqliterepo.NewEnvelopeRepository(db))
+			ingestAuth := middleware.IngestAuth(sourceService, sourceKeyService)
+
 			r := chi.NewRouter()
 			r.Use(middleware.RequestID)
 			r.Use(middleware.RequestLogger(logger))
@@ -117,6 +120,7 @@ func ServeCommand() *cli.Command {
 				handlers.NewSourceHandler(sourceService).RegisterRoutes(api)
 				handlers.NewSourceKeyHandler(sourceKeyService).RegisterRoutes(api)
 				handlers.NewDestinationHandler(destinationService).RegisterRoutes(api)
+				handlers.NewIngestHandler(ingestService, ingestAuth).RegisterRoutes(api)
 			})
 
 			docsHandler, err := handlers.NewDocsHandler()

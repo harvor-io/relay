@@ -17,9 +17,13 @@ tags:
     description: HMAC credentials used to verify signed requests from a Source.
   - name: Destinations
     description: Targets that relay forwards ingested data to.
+  - name: Ingest
+    description: The public entry point through which Sources deliver events.
 paths:
   /healthz:
     $ref: "./paths/health/healthz.yml"
+  /ingest/{source}:
+    $ref: "./paths/ingest/ingest.yml"
   /sources:
     $ref: "./paths/sources/sources.yml"
   /sources/{id}:

@@ -2,7 +2,9 @@ package services
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -80,6 +82,13 @@ type SourceKeyService interface {
 	// Delete removes the key and its underlying secret, or returns
 	// ErrSourceKeyNotFound.
 	Delete(ctx context.Context, sourceID, id uuid.UUID) error
+
+	// VerifySignature reports whether signature is a valid hex-encoded
+	// HMAC-SHA256 of payload, computed using the secret of any active key
+	// belonging to sourceID. It returns false, nil when no active key's
+	// secret produces a match; a non-nil error means the check could not be
+	// performed.
+	VerifySignature(ctx context.Context, sourceID uuid.UUID, payload []byte, signature string) (bool, error)
 }
 
 // sourceKeyService is the default SourceKeyService, backed by a
@@ -239,6 +248,39 @@ func (s *sourceKeyService) Delete(ctx context.Context, sourceID, id uuid.UUID) e
 		return fmt.Errorf("services: delete source key secret: %w", err)
 	}
 	return nil
+}
+
+// VerifySignature reports whether signature is a valid hex-encoded
+// HMAC-SHA256 of payload, computed using the secret of any active key
+// belonging to sourceID. It tries every active key so a signature is still
+// accepted during rotation, until one produces a match.
+func (s *sourceKeyService) VerifySignature(ctx context.Context, sourceID uuid.UUID, payload []byte, signature string) (bool, error) {
+	want, err := hex.DecodeString(signature)
+	if err != nil {
+		return false, nil
+	}
+
+	keys, err := s.keys.ListBySource(ctx, sourceID)
+	if err != nil {
+		return false, fmt.Errorf("services: list source keys: %w", err)
+	}
+
+	for i := range keys {
+		key := &keys[i]
+		if !key.IsActive {
+			continue
+		}
+		secret, err := s.decryptSecret(ctx, key.SecretID)
+		if err != nil {
+			return false, err
+		}
+		mac := hmac.New(sha256.New, []byte(secret))
+		mac.Write(payload)
+		if hmac.Equal(mac.Sum(nil), want) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // getOwned returns the key with the given ID, scoped to sourceID.
