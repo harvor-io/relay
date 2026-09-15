@@ -28,6 +28,10 @@ const (
 	// Docker image enables out of the box, so the service can talk to a
 	// local broker with no configuration.
 	defaultRabbitMQURI = "amqp://guest:guest@localhost:5672/"
+
+	// defaultEventBusDriver is the only eventbus backend Relay currently
+	// supports.
+	defaultEventBusDriver = "rabbitmq"
 )
 
 // Config contains the settings required to run the app.
@@ -58,6 +62,10 @@ type Config struct {
 	// Secrets configures the secret store used to encrypt-at-rest values
 	// such as source keys.
 	Secrets SecretsConfig
+
+	// EventBusDriver selects the eventbus backend. "rabbitmq" (the default,
+	// see internal/bus/rabbitmq) is the only backend currently supported.
+	EventBusDriver string
 
 	// RabbitMQ configures the connection to the RabbitMQ broker that backs
 	// the eventbus (see internal/bus/rabbitmq).
@@ -107,6 +115,7 @@ func New() *Config {
 			DatabaseURL:   envOrDefault("SECRETS_DATABASE_URL", databaseURL),
 			EncryptionKey: os.Getenv("SECRETS_ENCRYPTION_KEY"),
 		},
+		EventBusDriver: envOrDefault("EVENTBUS_DRIVER", defaultEventBusDriver),
 		RabbitMQ: RabbitMQConfig{
 			URI: envOrDefault("RABBITMQ_URI", defaultRabbitMQURI),
 		},

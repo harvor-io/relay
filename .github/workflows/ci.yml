@@ -71,6 +71,16 @@ jobs:
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
+    services:
+      rabbitmq:
+        image: rabbitmq:4.3-management
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q check_port_connectivity"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -85,6 +95,9 @@ jobs:
           # Test-only key; nothing encrypted with it outlives this job.
           SECRETS_ENCRYPTION_KEY: PMR/hf5+zhUN5AMEnBHC3l+2n7jcms8f2EfpuFf9MvU=
           LOG_FORMAT: text
+          # The rabbitmq service container publishes 5672 to the runner's
+          # localhost, matching this URI's default.
+          RABBITMQ_URI: amqp://guest:guest@localhost:5672/
       - name: Wait for relay to be ready
         run: |
           for i in $(seq 1 60); do

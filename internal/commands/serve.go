@@ -49,6 +49,7 @@ func ServeCommand() *cli.Command {
 			logger.Info("starting relay",
 				"port", cfg.Port,
 				"database_driver", cfg.DatabaseDriver,
+				"eventbus_driver", cfg.EventBusDriver,
 			)
 
 			db, err := database.Open(ctx, cfg)
@@ -67,6 +68,11 @@ func ServeCommand() *cli.Command {
 			}
 			if applied > 0 {
 				logger.Info("applied database migrations", "count", applied)
+			}
+
+			if cfg.EventBusDriver != rabbitmq.DriverName {
+				return fmt.Errorf("commands: unknown eventbus driver %q (want %q)",
+					cfg.EventBusDriver, rabbitmq.DriverName)
 			}
 
 			amqpConn, err := amqp.Dial(cfg.RabbitMQ.URI)

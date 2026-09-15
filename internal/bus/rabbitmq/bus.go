@@ -13,6 +13,10 @@ import (
 	"github.com/harvor-io/relay/internal/models"
 )
 
+// DriverName is the config.Config.EventBusDriver value that selects this
+// backend.
+const DriverName = "rabbitmq"
+
 // ingestExchange is the single topic exchange Relay publishes ingested
 // events to. Consumers bind their own queues to it with whatever routing
 // keys they care about.

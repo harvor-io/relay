@@ -62,6 +62,8 @@ Configuration is read from environment variables:
 | `SECRETS_DATABASE_DRIVER` | `sqlite` | Database driver for the secret store; same options as `DATABASE_DRIVER` |
 | `SECRETS_DATABASE_URL` | value of `DATABASE_URL` | Data source for the secret store; set to keep secrets in a dedicated database |
 | `SECRETS_ENCRYPTION_KEY` | _(none)_ | Key used to encrypt secrets at rest; must be base64-encoded 32 random bytes (e.g. `openssl rand -base64 32`) |
+| `EVENTBUS_DRIVER` | `rabbitmq` | Eventbus backend; `rabbitmq` is the only driver currently supported |
+| `RABBITMQ_URI` | `amqp://guest:guest@localhost:5672/` | AMQP connection URI for the RabbitMQ broker that backs the eventbus |
 
 ### Database migrations
 
