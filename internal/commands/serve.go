@@ -15,8 +15,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/urfave/cli/v3"
 
+	"github.com/harvor-io/relay/internal/bus/rabbitmq"
 	"github.com/harvor-io/relay/internal/config"
 	"github.com/harvor-io/relay/internal/database"
 	"github.com/harvor-io/relay/internal/handlers"
@@ -67,9 +69,20 @@ func ServeCommand() *cli.Command {
 				logger.Info("applied database migrations", "count", applied)
 			}
 
+			amqpConn, err := amqp.Dial(cfg.RabbitMQ.URI)
+			if err != nil {
+				return fmt.Errorf("connect to rabbitmq: %w", err)
+			}
+			defer func() { _ = amqpConn.Close() }()
+
+			eventBus := rabbitmq.New(amqpConn)
+			if err := eventBus.Setup(ctx); err != nil {
+				return fmt.Errorf("setup eventbus: %w", err)
+			}
+
 			sourceRepo := sqliterepo.NewSourceRepository(db)
 			envelopeRepo := sqliterepo.NewEnvelopeRepository(db)
-			sourceService := services.NewSourceService(sourceRepo, envelopeRepo)
+			sourceService := services.NewSourceService(sourceRepo, envelopeRepo, eventBus)
 
 			destinationRepo := sqliterepo.NewDestinationRepository(db)
 

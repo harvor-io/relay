@@ -6,7 +6,11 @@
 // Concrete implementations live in sub-packages, e.g. internal/bus/rabbitmq.
 package bus
 
-import "context"
+import (
+	"context"
+
+	"github.com/harvor-io/relay/internal/models"
+)
 
 // Bus is the interface Relay uses to talk to the underlying eventbus,
 // regardless of which broker backs it.
@@ -16,4 +20,8 @@ type Bus interface {
 	// implementations must ensure the required resources exist without
 	// erroring or duplicating them if they are already present.
 	Setup(ctx context.Context) error
+
+	// Publish sends envelope to the bus, routed by its Topic so that
+	// consumers bound to that topic receive it.
+	Publish(ctx context.Context, envelope *models.Envelope) error
 }

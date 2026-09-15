@@ -14,6 +14,13 @@ import (
 	"github.com/harvor-io/relay/internal/services"
 )
 
+// fakeBus is a no-op bus.Bus for tests.
+type fakeBus struct{}
+
+func (fakeBus) Setup(_ context.Context) error { return nil }
+
+func (fakeBus) Publish(_ context.Context, _ *models.Envelope) error { return nil }
+
 // fakeSourceRepo is an in-memory repositories.SourceRepository for tests.
 type fakeSourceRepo struct {
 	items   map[uuid.UUID]models.Source
@@ -124,7 +131,7 @@ func (f *fakeEnvelopeRepo) List(_ context.Context) ([]models.Envelope, error) {
 
 func TestSourceServiceCreate(t *testing.T) {
 	t.Run("trims fields and assigns identity", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo(), fakeBus{})
 
 		source, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name:        "  orders  ",
@@ -151,7 +158,7 @@ func TestSourceServiceCreate(t *testing.T) {
 	})
 
 	t.Run("blank description becomes nil", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo(), fakeBus{})
 
 		source, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name:        "orders",
@@ -166,7 +173,7 @@ func TestSourceServiceCreate(t *testing.T) {
 	})
 
 	t.Run("rejects empty name", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo(), fakeBus{})
 
 		_, err := svc.Create(context.Background(), services.CreateSourceInput{Name: "   "})
 		if !errors.Is(err, services.ErrSourceNameRequired) {
@@ -175,7 +182,7 @@ func TestSourceServiceCreate(t *testing.T) {
 	})
 
 	t.Run("rejects over-long name", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo(), fakeBus{})
 
 		_, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name: strings.Repeat("a", 256),
@@ -186,7 +193,7 @@ func TestSourceServiceCreate(t *testing.T) {
 	})
 
 	t.Run("rejects over-long description", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo(), fakeBus{})
 
 		_, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name:        "orders",
@@ -200,7 +207,7 @@ func TestSourceServiceCreate(t *testing.T) {
 
 func TestSourceServiceCreateSlug(t *testing.T) {
 	t.Run("derives a url-safe slug from the name", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo(), fakeBus{})
 
 		source, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name: "Order Events (US)",
@@ -214,7 +221,7 @@ func TestSourceServiceCreateSlug(t *testing.T) {
 	})
 
 	t.Run("suffixes a derived slug that collides", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo(), fakeBus{})
 
 		first, err := svc.Create(context.Background(), services.CreateSourceInput{Name: "orders"})
 		if err != nil {
@@ -230,7 +237,7 @@ func TestSourceServiceCreateSlug(t *testing.T) {
 	})
 
 	t.Run("keeps an explicit valid slug", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo(), fakeBus{})
 
 		source, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name: "Orders",
@@ -245,7 +252,7 @@ func TestSourceServiceCreateSlug(t *testing.T) {
 	})
 
 	t.Run("rejects a non-url-safe explicit slug", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo(), fakeBus{})
 
 		_, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name: "Orders",
@@ -258,7 +265,7 @@ func TestSourceServiceCreateSlug(t *testing.T) {
 
 	t.Run("rejects an explicit slug already in use", func(t *testing.T) {
 		repo := newFakeSourceRepo()
-		svc := services.NewSourceService(repo, newFakeEnvelopeRepo())
+		svc := services.NewSourceService(repo, newFakeEnvelopeRepo(), fakeBus{})
 
 		if _, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name: "Orders",
@@ -276,7 +283,7 @@ func TestSourceServiceCreateSlug(t *testing.T) {
 	})
 
 	t.Run("rejects a name no slug can be derived from", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo(), fakeBus{})
 
 		_, err := svc.Create(context.Background(), services.CreateSourceInput{Name: "!!!"})
 		if !errors.Is(err, services.ErrSourceSlugUnderivable) {
@@ -287,7 +294,7 @@ func TestSourceServiceCreateSlug(t *testing.T) {
 
 func TestSourceServiceGet(t *testing.T) {
 	repo := newFakeSourceRepo()
-	svc := services.NewSourceService(repo, newFakeEnvelopeRepo())
+	svc := services.NewSourceService(repo, newFakeEnvelopeRepo(), fakeBus{})
 
 	created, err := svc.Create(context.Background(), services.CreateSourceInput{Name: "orders"})
 	if err != nil {
@@ -309,7 +316,7 @@ func TestSourceServiceGet(t *testing.T) {
 
 func TestSourceServiceDelete(t *testing.T) {
 	repo := newFakeSourceRepo()
-	svc := services.NewSourceService(repo, newFakeEnvelopeRepo())
+	svc := services.NewSourceService(repo, newFakeEnvelopeRepo(), fakeBus{})
 
 	created, err := svc.Create(context.Background(), services.CreateSourceInput{Name: "orders"})
 	if err != nil {

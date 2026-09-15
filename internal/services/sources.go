@@ -11,6 +11,7 @@ import (
 	"github.com/gofrs/uuid/v5"
 	"github.com/gosimple/slug"
 
+	"github.com/harvor-io/relay/internal/bus"
 	"github.com/harvor-io/relay/internal/models"
 	"github.com/harvor-io/relay/internal/repositories"
 )
@@ -138,10 +139,11 @@ type SourceService interface {
 	// Delete removes the source with the given ID, or returns ErrSourceNotFound.
 	Delete(ctx context.Context, id uuid.UUID) error
 
-	// CreateEvent validates input and persists a new Envelope on behalf of
-	// an already-authenticated source. Its type is combined with source's
-	// slug to form the topic ("<slug>.<type>") used later to route the
-	// Envelope to Destinations. It returns ErrSourceNotActive if source has
+	// CreateEvent validates input, persists a new Envelope on behalf of an
+	// already-authenticated source, and publishes it to the eventbus. Its
+	// type is combined with source's slug to form the topic
+	// ("<slug>.<type>") used later to route the Envelope to Destinations. It
+	// returns ErrSourceNotActive if source has
 	// been deactivated, ErrSourceEventTypeRequired, ErrSourceEventTypeInvalid,
 	// ErrSourceEventTypeTooLong, or ErrSourceEventDataRequired when input is
 	// invalid, ErrSourceEventIDInvalid if a supplied envelope ID is not a
@@ -151,17 +153,20 @@ type SourceService interface {
 }
 
 // sourceService is the default SourceService, backed by a
-// repositories.SourceRepository and a repositories.EnvelopeRepository.
+// repositories.SourceRepository, a repositories.EnvelopeRepository, and a
+// bus.Bus to publish created events to.
 type sourceService struct {
 	sources   repositories.SourceRepository
 	envelopes repositories.EnvelopeRepository
+	bus       bus.Bus
 }
 
 var _ SourceService = (*sourceService)(nil)
 
-// NewSourceService returns a SourceService backed by sources and envelopes.
-func NewSourceService(sources repositories.SourceRepository, envelopes repositories.EnvelopeRepository) SourceService {
-	return &sourceService{sources: sources, envelopes: envelopes}
+// NewSourceService returns a SourceService backed by sources and envelopes,
+// publishing created events to eventBus.
+func NewSourceService(sources repositories.SourceRepository, envelopes repositories.EnvelopeRepository, eventBus bus.Bus) SourceService {
+	return &sourceService{sources: sources, envelopes: envelopes, bus: eventBus}
 }
 
 // CreateSourceInput carries the caller-supplied fields for a new source. The
@@ -194,10 +199,11 @@ type UpdateSourceInput struct {
 // CreateSourceEventInput carries the caller-supplied fields for a new event
 // submitted to a source.
 type CreateSourceEventInput struct {
-	// Type identifies the kind of event within the source, e.g.
-	// "user.created". Combined with the source's slug, it forms the
-	// Envelope's topic. Required; must contain only alphanumeric characters,
-	// ".", "_", or "-".
+	// Type identifies the kind of event within the source. It can be any
+	// value the caller chooses, but by convention should be
+	// "<resource>.<action>", e.g. "user.created". Combined with the source's
+	// slug, it forms the Envelope's topic. Required; must contain only
+	// alphanumeric characters, ".", "_", or "-".
 	Type string
 
 	// Data is the event payload, stored verbatim as the Envelope's message.
@@ -473,9 +479,15 @@ func (s *sourceService) CreateEvent(ctx context.Context, source *models.Source, 
 	if err := s.envelopes.Create(ctx, envelope); err != nil {
 		return nil, fmt.Errorf("services: create envelope: %w", err)
 	}
-	return envelope, nil
 
-	// TODO: transactionally publish to our eventbus
+	// TODO: We need a mechanism for an at-least-once delivery guarantee
+	// between the db write above and the eventbus publish below, ideally something that
+	// does not introduce a ton of latency like an outbox...
+	if err := s.bus.Publish(ctx, envelope); err != nil {
+		return nil, fmt.Errorf("services: publish envelope: %w", err)
+	}
+
+	return envelope, nil
 }
 
 // resolveEnvelopeID returns the UUID to persist for a new Envelope. An empty

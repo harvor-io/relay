@@ -25,8 +25,10 @@ type Envelope struct {
 	Source string
 
 	// Type identifies the kind of message this Envelope carries within its
-	// Source, e.g. "created" or "updated". Combined with Source, it forms the
-	// Envelope's Topic.
+	// Source. It can be any value the Source chooses, but by convention
+	// should be "<resource>.<action>", e.g. "user.created" or
+	// "invoice.updated". Combined with Source, it forms the Envelope's
+	// Topic.
 	Type string
 
 	// Data is the original event payload, preserved verbatim as JSON so that
