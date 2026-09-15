@@ -1,7 +1,11 @@
 name: Deploy
 
 on:
-  push:
+  # Runs after CI finishes on main, rather than in parallel with it, so a
+  # broken main never gets deployed.
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   release:
     types: [published]
@@ -18,9 +22,20 @@ jobs:
   build-and-push:
     name: Build and push image
     runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event.workflow_run.conclusion == 'success'
     steps:
+      - name: Resolve commit
+        id: commit
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
         with:
+          ref: ${{ steps.commit.outputs.sha }}
           fetch-tags: true
 
       - uses: docker/setup-buildx-action@v3
@@ -35,7 +50,8 @@ jobs:
       - name: Determine tags
         id: meta
         run: |
-          TAGS="ghcr.io/${{ github.repository }}:latest"$'\n'"ghcr.io/${{ github.repository }}:${{ github.sha }}"
+          SHA="${{ steps.commit.outputs.sha }}"
+          TAGS="ghcr.io/${{ github.repository }}:latest"$'\n'"ghcr.io/${{ github.repository }}:$SHA"
           if [ "${{ github.event_name }}" = "release" ]; then
             GIT_TAG="${{ github.event.release.tag_name }}"
           else
@@ -57,6 +73,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
-            VERSION=${{ github.sha }}
+            VERSION=${{ steps.commit.outputs.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
