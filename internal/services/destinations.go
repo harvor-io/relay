@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/gofrs/uuid/v5"
 
+	"github.com/harvor-io/relay/internal/bus"
 	"github.com/harvor-io/relay/internal/models"
 	"github.com/harvor-io/relay/internal/repositories"
 	"github.com/harvor-io/relay/pkg/encryptor"
@@ -21,7 +23,21 @@ import (
 const (
 	maxDestinationNameLength        = 255
 	maxDestinationDescriptionLength = 1024
+
+	// maxDestinationSubscriptionLength bounds each caller-supplied
+	// subscription topic.
+	maxDestinationSubscriptionLength = 255
 )
+
+// destinationSubscriptionPattern matches an exact subscription topic: the
+// same character restrictions as an event's type — alphanumeric characters
+// plus ".", "_", and "-", with no whitespace.
+var destinationSubscriptionPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+
+// destinationSubscriptionWildcardPattern matches a subscription ending in
+// ".*", which denotes a catch-all for every topic under that prefix (for
+// example, "crm.*" matches "crm.account.created").
+var destinationSubscriptionWildcardPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+\.\*$`)
 
 // Errors returned by DestinationService. Callers should compare against
 // these with errors.Is rather than inspecting messages.
@@ -77,6 +93,15 @@ var (
 	// one of its other required fields (algorithm, signature_header,
 	// encoding, signing_template, or timestamp_header).
 	ErrDestinationHMACConfigInvalid = errors.New("destination auth config is missing required hmac fields")
+
+	// ErrDestinationSubscriptionInvalid means a supplied subscription
+	// contained characters other than alphanumerics, ".", "_", or "-", or
+	// misused the "*" wildcard.
+	ErrDestinationSubscriptionInvalid = errors.New(`destination subscriptions must contain only alphanumeric characters, '.', '_', and '-', optionally ending in ".*" to match every topic under a prefix`)
+
+	// ErrDestinationSubscriptionTooLong means a supplied subscription
+	// exceeded the length bound.
+	ErrDestinationSubscriptionTooLong = fmt.Errorf("destination subscription must be at most %d characters", maxDestinationSubscriptionLength)
 )
 
 // authTypeHMACName is models.AuthTypeHMAC's string value, used to build
@@ -110,16 +135,18 @@ type DestinationService interface {
 	// ErrDestinationConfigRequired, ErrDestinationConfigInvalid,
 	// ErrDestinationConfigURLRequired, ErrDestinationAuthTypeInvalid,
 	// ErrDestinationHMACSecretRequired, ErrDestinationHMACConfigInvalid,
+	// ErrDestinationSubscriptionInvalid, ErrDestinationSubscriptionTooLong,
 	// ErrDestinationIDInvalid, or ErrDestinationIDTaken when input is
 	// invalid or conflicts with an existing destination.
 	Create(ctx context.Context, input CreateDestinationInput) (*models.Destination, error)
 
-	// Update changes the name and/or description of the destination with
-	// the given ID. Fields left nil in input are unchanged; a non-nil
-	// Description that is empty after trimming clears it, matching Create.
-	// It returns ErrDestinationNotFound, ErrDestinationNameRequired,
-	// ErrDestinationNameTooLong, or ErrDestinationDescriptionTooLong when
-	// input is invalid.
+	// Update changes the name, description, and/or subscriptions of the
+	// destination with the given ID. Fields left nil in input are
+	// unchanged; a non-nil Description that is empty after trimming clears
+	// it, matching Create. It returns ErrDestinationNotFound,
+	// ErrDestinationNameRequired, ErrDestinationNameTooLong,
+	// ErrDestinationDescriptionTooLong, ErrDestinationSubscriptionInvalid,
+	// or ErrDestinationSubscriptionTooLong when input is invalid.
 	Update(ctx context.Context, id uuid.UUID, input UpdateDestinationInput) (*models.Destination, error)
 
 	// Activate marks the destination as active, or returns
@@ -133,31 +160,37 @@ type DestinationService interface {
 	// Delete removes the destination with the given ID, or returns
 	// ErrDestinationNotFound. If the destination's config referenced an
 	// hmac secret, the secret is removed on a best-effort basis after the
-	// destination is gone.
+	// destination is gone. Its eventbus topology (delivery, retry, and
+	// dead-letter queues) is torn down the same way.
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 // destinationService is the default DestinationService, backed by a
-// repositories.DestinationRepository for destination records and a
+// repositories.DestinationRepository for destination records, a
 // secrets.Store for secret values referenced from a destination's config
-// (for example, an hmac auth config's signing secret).
+// (for example, an hmac auth config's signing secret), and a bus.Bus to
+// provision the eventbus topology that delivers envelopes matching a
+// destination's subscriptions.
 type destinationService struct {
 	destinations repositories.DestinationRepository
 	secrets      secrets.Store
 	encryptor    encryptor.Encryptor
+	bus          bus.Bus
 }
 
 var _ DestinationService = (*destinationService)(nil)
 
 // NewDestinationService returns a DestinationService backed by destinations
 // for destination records, secretStore for secret values referenced from a
-// destination's config, and enc to encrypt and decrypt them.
+// destination's config, enc to encrypt and decrypt them, and eventBus to
+// provision the eventbus topology backing each destination's subscriptions.
 func NewDestinationService(
 	destinations repositories.DestinationRepository,
 	secretStore secrets.Store,
 	enc encryptor.Encryptor,
+	eventBus bus.Bus,
 ) DestinationService {
-	return &destinationService{destinations: destinations, secrets: secretStore, encryptor: enc}
+	return &destinationService{destinations: destinations, secrets: secretStore, encryptor: enc, bus: eventBus}
 }
 
 // CreateDestinationInput carries the caller-supplied fields for a new
@@ -178,6 +211,15 @@ type CreateDestinationInput struct {
 	// with a non-empty URL, and its Auth, if present, must have Type "hmac".
 	Config json.RawMessage
 
+	// Subscriptions lists the topic patterns this destination wants to
+	// receive envelopes for. Each entry is trimmed and must contain only
+	// alphanumeric characters, ".", "_", and "-" — the same restriction as
+	// an event's type — optionally ending in ".*" to match every topic
+	// under that prefix (for example, "crm.*" matches
+	// "crm.account.created"). Optional; a destination with no subscriptions
+	// receives nothing.
+	Subscriptions []string
+
 	// ID is optional. When empty, the service generates a UUIDv7. When set,
 	// it must be a valid UUID and must not already belong to another
 	// destination.
@@ -190,9 +232,13 @@ type CreateDestinationInput struct {
 // supplied, is trimmed and normalised the same way as on Create — including
 // that a value which is empty after trimming clears the description; to
 // leave the description untouched, leave this nil rather than supplying "".
+// Subscriptions, when supplied, replaces the destination's subscriptions
+// wholesale and is validated the same way as on Create; a non-nil pointer to
+// an empty slice clears the subscriptions.
 type UpdateDestinationInput struct {
-	Name        *string
-	Description *string
+	Name          *string
+	Description   *string
+	Subscriptions *[]string
 }
 
 // Get returns the destination with the given ID, or ErrDestinationNotFound.
@@ -214,12 +260,15 @@ func (s *destinationService) List(ctx context.Context) ([]models.Destination, er
 }
 
 // Create validates input and persists a new destination, returning it with
-// its assigned ID and timestamps. It returns ErrDestinationNameRequired,
-// ErrDestinationNameTooLong, ErrDestinationDescriptionTooLong,
-// ErrDestinationTypeInvalid, ErrDestinationConfigRequired,
-// ErrDestinationConfigInvalid, ErrDestinationConfigURLRequired,
-// ErrDestinationAuthTypeInvalid, ErrDestinationHMACSecretRequired, or
-// ErrDestinationHMACConfigInvalid when input is invalid.
+// its assigned ID and timestamps. It also provisions the destination's
+// eventbus topology, bound to receive envelopes matching its subscriptions.
+// It returns ErrDestinationNameRequired, ErrDestinationNameTooLong,
+// ErrDestinationDescriptionTooLong, ErrDestinationTypeInvalid,
+// ErrDestinationConfigRequired, ErrDestinationConfigInvalid,
+// ErrDestinationConfigURLRequired, ErrDestinationAuthTypeInvalid,
+// ErrDestinationHMACSecretRequired, ErrDestinationHMACConfigInvalid,
+// ErrDestinationSubscriptionInvalid, or ErrDestinationSubscriptionTooLong
+// when input is invalid.
 func (s *destinationService) Create(ctx context.Context, input CreateDestinationInput) (*models.Destination, error) {
 	name := strings.TrimSpace(input.Name)
 	switch {
@@ -244,26 +293,37 @@ func (s *destinationService) Create(ctx context.Context, input CreateDestination
 		return nil, err
 	}
 
+	subscriptions, err := resolveDestinationSubscriptions(input.Subscriptions)
+	if err != nil {
+		return nil, err
+	}
+
 	id, err := s.resolveID(ctx, input.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	destination := &models.Destination{ID: id, Name: name, Type: typ, Config: cfg, Description: description, IsActive: true}
+	destination := &models.Destination{ID: id, Name: name, Type: typ, Config: cfg, Description: description, Subscriptions: subscriptions, IsActive: true}
 	if err := s.destinations.Create(ctx, destination); err != nil {
 		if errors.Is(err, repositories.ErrConflict) {
 			return nil, ErrDestinationIDTaken
 		}
 		return nil, fmt.Errorf("services: create destination: %w", err)
 	}
+
+	if err := s.bus.Apply(ctx, destination); err != nil {
+		return nil, fmt.Errorf("services: provision destination eventbus topology: %w", err)
+	}
 	return destination, nil
 }
 
-// Update changes the name and/or description of the destination with the
-// given ID, leaving fields nil in input unchanged. It returns
-// ErrDestinationNotFound, ErrDestinationNameRequired,
-// ErrDestinationNameTooLong, or ErrDestinationDescriptionTooLong when input
-// is invalid.
+// Update changes the name, description, and/or subscriptions of the
+// destination with the given ID, leaving fields nil in input unchanged. When
+// Subscriptions is supplied, the destination's eventbus topology is rebound
+// from scratch to match. It returns ErrDestinationNotFound,
+// ErrDestinationNameRequired, ErrDestinationNameTooLong,
+// ErrDestinationDescriptionTooLong, ErrDestinationSubscriptionInvalid, or
+// ErrDestinationSubscriptionTooLong when input is invalid.
 func (s *destinationService) Update(ctx context.Context, id uuid.UUID, input UpdateDestinationInput) (*models.Destination, error) {
 	destination, err := s.destinations.Get(ctx, id)
 	if err != nil {
@@ -289,8 +349,30 @@ func (s *destinationService) Update(ctx context.Context, id uuid.UUID, input Upd
 		destination.Description = description
 	}
 
+	rebind := false
+	if input.Subscriptions != nil {
+		subscriptions, err := resolveDestinationSubscriptions(*input.Subscriptions)
+		if err != nil {
+			return nil, err
+		}
+		destination.Subscriptions = subscriptions
+		rebind = true
+	}
+
 	if err := s.destinations.Update(ctx, destination); err != nil {
 		return nil, mapDestinationRepoError("update destination", err)
+	}
+
+	if rebind {
+		// Apply only adds bindings for the subscriptions it's given; it
+		// doesn't remove ones left over from before. Remove and reapply to
+		// rebind from scratch.
+		if err := s.bus.Remove(ctx, destination); err != nil {
+			return nil, fmt.Errorf("services: remove destination eventbus topology: %w", err)
+		}
+		if err := s.bus.Apply(ctx, destination); err != nil {
+			return nil, fmt.Errorf("services: provision destination eventbus topology: %w", err)
+		}
 	}
 	return destination, nil
 }
@@ -320,10 +402,11 @@ func (s *destinationService) setActive(ctx context.Context, id uuid.UUID, active
 }
 
 // Delete removes the destination with the given ID, returning
-// ErrDestinationNotFound if it does not exist. If the destination's config
-// referenced an hmac secret, the secret is removed on a best-effort basis
-// after the destination row is gone; a secret that is already missing is
-// not an error.
+// ErrDestinationNotFound if it does not exist. Its eventbus topology
+// (delivery, retry, and dead-letter queues) is torn down after the
+// destination row is gone. If the destination's config referenced an hmac
+// secret, the secret is removed on a best-effort basis after that; a secret
+// that is already missing is not an error.
 func (s *destinationService) Delete(ctx context.Context, id uuid.UUID) error {
 	destination, err := s.destinations.Get(ctx, id)
 	if err != nil {
@@ -332,6 +415,10 @@ func (s *destinationService) Delete(ctx context.Context, id uuid.UUID) error {
 
 	if err := s.destinations.Delete(ctx, id); err != nil {
 		return mapDestinationRepoError("delete destination", err)
+	}
+
+	if err := s.bus.Remove(ctx, destination); err != nil {
+		return fmt.Errorf("services: remove destination eventbus topology: %w", err)
 	}
 
 	secretID, ok := hmacSecretID(destination.Type, destination.Config)
@@ -394,6 +481,26 @@ func resolveDestinationType(provided string) (models.DestinationType, error) {
 		return "", ErrDestinationTypeInvalid
 	}
 	return models.DestinationType(provided), nil
+}
+
+// resolveDestinationSubscriptions trims and validates each caller-supplied
+// subscription topic and returns the models.Subscriptions to persist. Each
+// entry must contain only alphanumeric characters, ".", "_", and "-" —
+// the same restriction as an event's type — optionally ending in ".*" to
+// match every topic under that prefix.
+func resolveDestinationSubscriptions(provided []string) ([]models.Subscription, error) {
+	subscriptions := make([]models.Subscription, 0, len(provided))
+	for _, raw := range provided {
+		trimmed := strings.TrimSpace(raw)
+		switch {
+		case len(trimmed) > maxDestinationSubscriptionLength:
+			return nil, ErrDestinationSubscriptionTooLong
+		case !destinationSubscriptionPattern.MatchString(trimmed) && !destinationSubscriptionWildcardPattern.MatchString(trimmed):
+			return nil, ErrDestinationSubscriptionInvalid
+		}
+		subscriptions = append(subscriptions, models.Subscription(trimmed))
+	}
+	return subscriptions, nil
 }
 
 // resolveDestinationConfig validates raw against the config shape typ

@@ -40,6 +40,11 @@ type Destination struct {
 	// is and why it exists. It is nil when no description has been provided.
 	Description *string
 
+	// Subscriptions lists the topic patterns this Destination wants to
+	// receive Envelopes for. An Envelope is delivered here if its Topic
+	// matches at least one Subscription.
+	Subscriptions []Subscription
+
 	// IsActive reports whether the Destination currently accepts deliveries.
 	// When false, data is not forwarded here even though the Destination
 	// remains registered.

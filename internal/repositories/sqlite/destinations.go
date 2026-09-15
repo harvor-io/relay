@@ -28,7 +28,7 @@ func NewDestinationRepository(db *sql.DB) *DestinationRepository {
 	return &DestinationRepository{db: db}
 }
 
-const destinationColumns = `id, name, type, config, description, is_active, created_at, updated_at`
+const destinationColumns = `id, name, type, config, description, subscriptions, is_active, created_at, updated_at`
 
 // Create inserts a new destination, assigning a UUIDv7 and timestamps when
 // unset.
@@ -46,13 +46,19 @@ func (r *DestinationRepository) Create(ctx context.Context, destination *models.
 	}
 	destination.UpdatedAt = now
 
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO destinations (`+destinationColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+	subscriptions, err := json.Marshal(destination.Subscriptions)
+	if err != nil {
+		return fmt.Errorf("sqlite: marshal destination subscriptions: %w", err)
+	}
+
+	_, err = r.db.ExecContext(ctx,
+		`INSERT INTO destinations (`+destinationColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		destination.ID.String(),
 		destination.Name,
 		string(destination.Type),
 		string(destination.Config),
 		sqlitedb.NullString(destination.Description),
+		string(subscriptions),
 		destination.IsActive,
 		destination.CreatedAt.Format(sqlitedb.TimeLayout),
 		destination.UpdatedAt.Format(sqlitedb.TimeLayout),
@@ -99,10 +105,17 @@ func (r *DestinationRepository) List(ctx context.Context) ([]models.Destination,
 // Update overwrites the mutable columns of an existing destination.
 func (r *DestinationRepository) Update(ctx context.Context, destination *models.Destination) error {
 	destination.UpdatedAt = time.Now().UTC()
+
+	subscriptions, err := json.Marshal(destination.Subscriptions)
+	if err != nil {
+		return fmt.Errorf("sqlite: marshal destination subscriptions: %w", err)
+	}
+
 	res, err := r.db.ExecContext(ctx,
-		`UPDATE destinations SET name = ?, description = ?, is_active = ?, updated_at = ? WHERE id = ?`,
+		`UPDATE destinations SET name = ?, description = ?, subscriptions = ?, is_active = ?, updated_at = ? WHERE id = ?`,
 		destination.Name,
 		sqlitedb.NullString(destination.Description),
+		string(subscriptions),
 		destination.IsActive,
 		destination.UpdatedAt.Format(sqlitedb.TimeLayout),
 		destination.ID.String(),
@@ -124,12 +137,12 @@ func (r *DestinationRepository) Delete(ctx context.Context, id uuid.UUID) error 
 
 func scanDestination(s sqlitedb.Scanner) (*models.Destination, error) {
 	var (
-		destination               models.Destination
-		idStr, typeStr, configStr string
-		description               sql.NullString
-		createdAt, updatedAt      string
+		destination                              models.Destination
+		idStr, typeStr, configStr, subscriptions string
+		description                              sql.NullString
+		createdAt, updatedAt                     string
 	)
-	if err := s.Scan(&idStr, &destination.Name, &typeStr, &configStr, &description, &destination.IsActive, &createdAt, &updatedAt); err != nil {
+	if err := s.Scan(&idStr, &destination.Name, &typeStr, &configStr, &description, &subscriptions, &destination.IsActive, &createdAt, &updatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, repositories.ErrNotFound
 		}
@@ -144,6 +157,9 @@ func scanDestination(s sqlitedb.Scanner) (*models.Destination, error) {
 	destination.Type = models.DestinationType(typeStr)
 	destination.Config = json.RawMessage(configStr)
 	destination.Description = sqlitedb.StringPtr(description)
+	if err := json.Unmarshal([]byte(subscriptions), &destination.Subscriptions); err != nil {
+		return nil, fmt.Errorf("sqlite: parse destination subscriptions: %w", err)
+	}
 	if destination.CreatedAt, err = sqlitedb.ParseTime(createdAt); err != nil {
 		return nil, fmt.Errorf("sqlite: parse destination created_at: %w", err)
 	}

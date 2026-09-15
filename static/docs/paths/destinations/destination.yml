@@ -37,11 +37,12 @@ patch:
   operationId: updateDestination
   summary: Update a destination
   description: >-
-    Updates the name and/or description of an existing destination. Fields
-    left out of the request body (or sent as null) are unchanged. Surrounding
-    whitespace is trimmed; a description that is empty after trimming clears
-    it, so to leave the description untouched, omit it rather than sending an
-    empty string.
+    Updates the name, description, and/or subscriptions of an existing
+    destination. Fields left out of the request body (or sent as null) are
+    unchanged. Surrounding whitespace is trimmed; a description that is empty
+    after trimming clears it, so to leave the description untouched, omit it
+    rather than sending an empty string. Subscriptions, when supplied,
+    replaces the existing set wholesale; send an empty array to clear it.
   tags:
     - Destinations
   requestBody:

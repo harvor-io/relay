@@ -26,8 +26,10 @@ post:
     and an auth.type of "hmac" if auth is present. When auth is hmac, the
     caller supplies the plaintext signing secret (see NewHMACAuthConfig);
     it is encrypted and stored in the secrets store, and the response's
-    config carries only a reference to it, never the plaintext. When no ID
-    is supplied, a UUIDv7 is generated.
+    config carries only a reference to it, never the plaintext. Subscriptions
+    is optional and defaults to empty, meaning the destination receives
+    nothing until subscriptions are added. When no ID is supplied, a UUIDv7
+    is generated.
   tags:
     - Destinations
   requestBody:

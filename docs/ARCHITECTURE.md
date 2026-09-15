@@ -172,8 +172,8 @@ subscriptions, and delivery are not yet implemented.
 | Piece | Status |
 |---|---|
 | Source CRUD | Implemented |
-| Destination CRUD | Modeled, not exposed via API |
-| Subscriptions (destination ↔ source topic) | Not implemented |
+| Destination CRUD | Implemented |
+| Subscriptions (destination ↔ source topic) | Implemented |
 | Envelope ingestion (HTTP/gRPC) | Not implemented |
 | Envelope retention/purge (max age) | Not implemented |
 | RabbitMQ eventbus integration | Not implemented |

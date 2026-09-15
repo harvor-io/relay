@@ -21,6 +21,10 @@ func (fakeBus) Setup(_ context.Context) error { return nil }
 
 func (fakeBus) Publish(_ context.Context, _ *models.Envelope) error { return nil }
 
+func (fakeBus) Apply(_ context.Context, _ *models.Destination) error { return nil }
+
+func (fakeBus) Remove(_ context.Context, _ *models.Destination) error { return nil }
+
 // fakeSourceRepo is an in-memory repositories.SourceRepository for tests.
 type fakeSourceRepo struct {
 	items   map[uuid.UUID]models.Source

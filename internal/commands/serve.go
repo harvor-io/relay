@@ -123,7 +123,7 @@ func ServeCommand() *cli.Command {
 				enc,
 			)
 
-			destinationService := services.NewDestinationService(destinationRepo, secretStore, enc)
+			destinationService := services.NewDestinationService(destinationRepo, secretStore, enc, eventBus)
 
 			sourceEventAuth := middleware.HMACAuth(sourceService, sourceKeyService)
 

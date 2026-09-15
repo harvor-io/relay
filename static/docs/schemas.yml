@@ -178,6 +178,7 @@ components:
         - type
         - config
         - description
+        - subscriptions
         - is_active
         - created_at
         - updated_at
@@ -210,6 +211,21 @@ components:
           nullable: true
           description: Optional free-form explanation, or null when unset.
           example: Batched delivery of order events to the data warehouse.
+        subscriptions:
+          type: array
+          items:
+            type: string
+          description: >-
+            The topic patterns this destination receives envelopes for. An
+            envelope is delivered here if its topic matches at least one
+            entry. Each entry must contain only alphanumeric characters,
+            ".", "_", and "-", optionally ending in ".*" to match every
+            topic under that prefix — for example, "crm.*" matches
+            "crm.account.created", and "crm.account.*" matches
+            "crm.account.created" but not "crm.contact.created". A
+            destination with no subscriptions receives nothing.
+          example:
+            - crm.account.*
         is_active:
           type: boolean
           description: Whether the destination currently accepts deliveries.
@@ -259,6 +275,19 @@ components:
           nullable: true
           description: Optional free-form explanation.
           example: Batched delivery of order events to the data warehouse.
+        subscriptions:
+          type: array
+          items:
+            type: string
+          description: >-
+            The topic patterns this destination wants to receive envelopes
+            for. Optional; a destination with no subscriptions receives
+            nothing. Each entry must contain only alphanumeric characters,
+            ".", "_", and "-", optionally ending in ".*" to match every
+            topic under that prefix — for example, "crm.*" matches
+            "crm.account.created".
+          example:
+            - crm.account.*
 
     NewWebhookConfig:
       description: >-
@@ -439,6 +468,16 @@ components:
             New free-form explanation. Omit to leave the description
             unchanged; a value that is empty after trimming clears it.
           example: Batched delivery of order events to the data warehouse.
+        subscriptions:
+          type: array
+          items:
+            type: string
+          description: >-
+            New set of topic patterns, replacing the existing ones wholesale.
+            Omit to leave the subscriptions unchanged; an empty array clears
+            them. Validated the same way as on creation.
+          example:
+            - crm.account.*
 
     Envelope:
       type: object

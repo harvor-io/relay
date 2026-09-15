@@ -44,27 +44,39 @@ func (h *DestinationHandler) RegisterRoutes(r chi.Router) {
 // the REST resource, with nothing about how the record is stored or
 // counted.
 type destinationResource struct {
-	ID          string          `json:"id"`
-	Name        string          `json:"name"`
-	Type        string          `json:"type"`
-	Config      json.RawMessage `json:"config"`
-	Description *string         `json:"description"`
-	IsActive    bool            `json:"is_active"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
+	ID            string          `json:"id"`
+	Name          string          `json:"name"`
+	Type          string          `json:"type"`
+	Config        json.RawMessage `json:"config"`
+	Description   *string         `json:"description"`
+	Subscriptions []string        `json:"subscriptions"`
+	IsActive      bool            `json:"is_active"`
+	CreatedAt     time.Time       `json:"created_at"`
+	UpdatedAt     time.Time       `json:"updated_at"`
 }
 
 func newDestinationResource(d *models.Destination) destinationResource {
 	return destinationResource{
-		ID:          d.ID.String(),
-		Name:        d.Name,
-		Type:        string(d.Type),
-		Config:      d.Config,
-		Description: d.Description,
-		IsActive:    d.IsActive,
-		CreatedAt:   d.CreatedAt,
-		UpdatedAt:   d.UpdatedAt,
+		ID:            d.ID.String(),
+		Name:          d.Name,
+		Type:          string(d.Type),
+		Config:        d.Config,
+		Description:   d.Description,
+		Subscriptions: destinationSubscriptionStrings(d.Subscriptions),
+		IsActive:      d.IsActive,
+		CreatedAt:     d.CreatedAt,
+		UpdatedAt:     d.UpdatedAt,
 	}
+}
+
+// destinationSubscriptionStrings converts a destination's subscriptions to
+// their plain string form for JSON responses.
+func destinationSubscriptionStrings(subscriptions []models.Subscription) []string {
+	result := make([]string, len(subscriptions))
+	for i, s := range subscriptions {
+		result[i] = s.String()
+	}
+	return result
 }
 
 func newDestinationResourceList(destinations []models.Destination) []destinationResource {
@@ -77,19 +89,22 @@ func newDestinationResourceList(destinations []models.Destination) []destination
 
 // createDestinationRequest is the accepted body for POST /destinations.
 type createDestinationRequest struct {
-	ID          string          `json:"id"`
-	Name        string          `json:"name"`
-	Type        string          `json:"type"`
-	Config      json.RawMessage `json:"config"`
-	Description *string         `json:"description"`
+	ID            string          `json:"id"`
+	Name          string          `json:"name"`
+	Type          string          `json:"type"`
+	Config        json.RawMessage `json:"config"`
+	Description   *string         `json:"description"`
+	Subscriptions []string        `json:"subscriptions"`
 }
 
 // updateDestinationRequest is the accepted body for PATCH /destinations/{id}.
 // A field left out of the JSON body (or sent as null) is unchanged; to clear
-// the description, send an empty string rather than null.
+// the description, send an empty string rather than null; to clear
+// subscriptions, send an empty array rather than null.
 type updateDestinationRequest struct {
-	Name        *string `json:"name"`
-	Description *string `json:"description"`
+	Name          *string   `json:"name"`
+	Description   *string   `json:"description"`
+	Subscriptions *[]string `json:"subscriptions"`
 }
 
 // ListDestinations returns every destination as a JSON array.
@@ -125,11 +140,12 @@ func (h *DestinationHandler) CreateDestination(w http.ResponseWriter, r *http.Re
 	}
 
 	destination, err := h.destinations.Create(r.Context(), services.CreateDestinationInput{
-		ID:          body.ID,
-		Name:        body.Name,
-		Type:        body.Type,
-		Config:      body.Config,
-		Description: body.Description,
+		ID:            body.ID,
+		Name:          body.Name,
+		Type:          body.Type,
+		Config:        body.Config,
+		Description:   body.Description,
+		Subscriptions: body.Subscriptions,
 	})
 	if err != nil {
 		renderDestinationError(w, r, err)
@@ -154,8 +170,9 @@ func (h *DestinationHandler) UpdateDestination(w http.ResponseWriter, r *http.Re
 	}
 
 	destination, err := h.destinations.Update(r.Context(), id, services.UpdateDestinationInput{
-		Name:        body.Name,
-		Description: body.Description,
+		Name:          body.Name,
+		Description:   body.Description,
+		Subscriptions: body.Subscriptions,
 	})
 	if err != nil {
 		renderDestinationError(w, r, err)
@@ -223,6 +240,8 @@ func renderDestinationError(w http.ResponseWriter, r *http.Request, err error) {
 		errors.Is(err, services.ErrDestinationAuthTypeInvalid),
 		errors.Is(err, services.ErrDestinationHMACSecretRequired),
 		errors.Is(err, services.ErrDestinationHMACConfigInvalid),
+		errors.Is(err, services.ErrDestinationSubscriptionInvalid),
+		errors.Is(err, services.ErrDestinationSubscriptionTooLong),
 		errors.Is(err, services.ErrDestinationIDInvalid):
 		renderError(w, r, http.StatusUnprocessableEntity, err.Error())
 	default:
