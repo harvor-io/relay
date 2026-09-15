@@ -36,7 +36,7 @@ func (b *Bus) Setup(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("rabbitmq: open channel: %w", err)
 	}
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 
 	err = ch.ExchangeDeclare(
 		ingestExchange,     // name

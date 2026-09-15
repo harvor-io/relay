@@ -122,15 +122,13 @@ func (f *fakeEnvelopeRepo) List(_ context.Context) ([]models.Envelope, error) {
 	return out, nil
 }
 
-func ptr(s string) *string { return &s }
-
 func TestSourceServiceCreate(t *testing.T) {
 	t.Run("trims fields and assigns identity", func(t *testing.T) {
 		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
 
 		source, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name:        "  orders  ",
-			Description: ptr("  from the shop  "),
+			Description: new("  from the shop  "),
 		})
 		if err != nil {
 			t.Fatalf("Create: %v", err)
@@ -157,7 +155,7 @@ func TestSourceServiceCreate(t *testing.T) {
 
 		source, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name:        "orders",
-			Description: ptr("   "),
+			Description: new("   "),
 		})
 		if err != nil {
 			t.Fatalf("Create: %v", err)
@@ -192,7 +190,7 @@ func TestSourceServiceCreate(t *testing.T) {
 
 		_, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name:        "orders",
-			Description: ptr(strings.Repeat("a", 1025)),
+			Description: new(strings.Repeat("a", 1025)),
 		})
 		if !errors.Is(err, services.ErrSourceDescriptionTooLong) {
 			t.Fatalf("err = %v, want ErrSourceDescriptionTooLong", err)
