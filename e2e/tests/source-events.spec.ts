@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { createSource, createSourceKey, signIngestBody } from "./helpers";
+import { createSource, createSourceKey, signSourceEventBody } from "./helpers";
 import type { CreatedSourceKeyResource, SourceResource } from "./helpers";
 
-test.describe("ingest", () => {
+test.describe("source events", () => {
   let source: SourceResource;
   let key: CreatedSourceKeyResource;
 
@@ -14,7 +14,7 @@ test.describe("ingest", () => {
   test("401 when the signature does not match any active key", async ({ request }) => {
     const body = JSON.stringify({ type: "e2e.event", data: { hello: "world" } });
 
-    const response = await request.post(`ingest/${source.slug}`, {
+    const response = await request.post(`sources/${source.slug}/events`, {
       data: body,
       headers: { "X-Relay-Signature": "0".repeat(64) },
     });
@@ -23,12 +23,12 @@ test.describe("ingest", () => {
     expect(await response.json()).toMatchObject({ error: expect.any(String) });
   });
 
-  test("happy path: ingest by source slug", async ({ request }) => {
+  test("happy path: submit event by source slug", async ({ request }) => {
     const payload = { hello: "world" };
     const body = JSON.stringify({ type: "e2e.event", data: payload });
-    const signature = signIngestBody(key.secret, body);
+    const signature = signSourceEventBody(key.secret, body);
 
-    const response = await request.post(`ingest/${source.slug}`, {
+    const response = await request.post(`sources/${source.slug}/events`, {
       data: body,
       headers: { "X-Relay-Signature": signature },
     });
@@ -52,9 +52,9 @@ test.describe("ingest", () => {
 
     try {
       const body = JSON.stringify({ type: "e2e.event", data: { hello: "world" } });
-      const signature = signIngestBody(key.secret, body);
+      const signature = signSourceEventBody(key.secret, body);
 
-      const response = await request.post(`ingest/${source.slug}`, {
+      const response = await request.post(`sources/${source.slug}/events`, {
         data: body,
         headers: { "X-Relay-Signature": signature },
       });
@@ -67,12 +67,12 @@ test.describe("ingest", () => {
     }
   });
 
-  test("happy path: ingest by source id", async ({ request }) => {
+  test("happy path: submit event by source id", async ({ request }) => {
     const payload = { hello: "again" };
     const body = JSON.stringify({ type: "e2e.event", data: payload });
-    const signature = signIngestBody(key.secret, body);
+    const signature = signSourceEventBody(key.secret, body);
 
-    const response = await request.post(`ingest/${source.id}`, {
+    const response = await request.post(`sources/${source.id}/events`, {
       data: body,
       headers: { "X-Relay-Signature": signature },
     });

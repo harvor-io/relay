@@ -68,7 +68,8 @@ func ServeCommand() *cli.Command {
 			}
 
 			sourceRepo := sqliterepo.NewSourceRepository(db)
-			sourceService := services.NewSourceService(sourceRepo)
+			envelopeRepo := sqliterepo.NewEnvelopeRepository(db)
+			sourceService := services.NewSourceService(sourceRepo, envelopeRepo)
 
 			destinationRepo := sqliterepo.NewDestinationRepository(db)
 
@@ -105,8 +106,7 @@ func ServeCommand() *cli.Command {
 
 			destinationService := services.NewDestinationService(destinationRepo, secretStore, enc)
 
-			ingestService := services.NewIngestService(sqliterepo.NewEnvelopeRepository(db))
-			ingestAuth := middleware.IngestAuth(sourceService, sourceKeyService)
+			sourceEventAuth := middleware.HMACAuth(sourceService, sourceKeyService)
 
 			r := chi.NewRouter()
 			r.Use(middleware.RequestID)
@@ -117,10 +117,9 @@ func ServeCommand() *cli.Command {
 				// Health stays public so infrastructure probes (Docker,
 				// load balancers) can reach it without a token.
 				handlers.NewHealthHandler().RegisterRoutes(api)
-				handlers.NewSourceHandler(sourceService).RegisterRoutes(api)
+				handlers.NewSourceHandler(sourceService, sourceEventAuth).RegisterRoutes(api)
 				handlers.NewSourceKeyHandler(sourceKeyService).RegisterRoutes(api)
 				handlers.NewDestinationHandler(destinationService).RegisterRoutes(api)
-				handlers.NewIngestHandler(ingestService, ingestAuth).RegisterRoutes(api)
 			})
 
 			docsHandler, err := handlers.NewDocsHandler()

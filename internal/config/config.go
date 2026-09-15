@@ -23,6 +23,11 @@ const (
 	// directory. It is enough to run the service with no external
 	// dependencies; production deployments override DATABASE_URL.
 	defaultDatabaseURL = "file:relay.db"
+
+	// defaultRabbitMQURI matches the guest account RabbitMQ's official
+	// Docker image enables out of the box, so the service can talk to a
+	// local broker with no configuration.
+	defaultRabbitMQURI = "amqp://guest:guest@localhost:5672/"
 )
 
 // Config contains the settings required to run the app.
@@ -53,6 +58,10 @@ type Config struct {
 	// Secrets configures the secret store used to encrypt-at-rest values
 	// such as source keys.
 	Secrets SecretsConfig
+
+	// RabbitMQ configures the connection to the RabbitMQ broker that backs
+	// the eventbus (see internal/bus/rabbitmq).
+	RabbitMQ RabbitMQConfig
 }
 
 // SecretsConfig configures the secret store.
@@ -73,6 +82,15 @@ type SecretsConfig struct {
 	EncryptionKey string
 }
 
+// RabbitMQConfig configures the connection to the RabbitMQ broker.
+type RabbitMQConfig struct {
+	// URI is the AMQP connection URI, e.g.
+	// "amqp://user:pass@host:5672/vhost". Any credentials, vhost, or query
+	// parameters (e.g. TLS options) the broker needs belong in this single
+	// connection string rather than as separate fields.
+	URI string
+}
+
 // New loads configuration from the environment.
 func New() *Config {
 	databaseURL := envOrDefault("DATABASE_URL", defaultDatabaseURL)
@@ -88,6 +106,9 @@ func New() *Config {
 			Driver:        envOrDefault("SECRETS_DATABASE_DRIVER", defaultDatabaseDriver),
 			DatabaseURL:   envOrDefault("SECRETS_DATABASE_URL", databaseURL),
 			EncryptionKey: os.Getenv("SECRETS_ENCRYPTION_KEY"),
+		},
+		RabbitMQ: RabbitMQConfig{
+			URI: envOrDefault("RABBITMQ_URI", defaultRabbitMQURI),
 		},
 	}
 }

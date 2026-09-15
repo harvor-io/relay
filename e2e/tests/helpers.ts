@@ -91,9 +91,9 @@ export async function createSourceKey(
   return response.json();
 }
 
-// signIngestBody computes the X-Relay-Signature header value for body: a
+// signSourceEventBody computes the X-Relay-Signature header value for body: a
 // hex-encoded HMAC-SHA256 keyed with a source key's plaintext secret (itself
 // hex-encoded text, used as-is, not decoded to raw bytes).
-export function signIngestBody(secret: string, body: string): string {
+export function signSourceEventBody(secret: string, body: string): string {
   return createHmac("sha256", secret).update(body).digest("hex");
 }

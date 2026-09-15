@@ -490,7 +490,7 @@ components:
           format: date-time
           description: When the envelope was accepted into relay.
 
-    NewIngestEvent:
+    NewSourceEvent:
       type: object
       required:
         - type
@@ -499,7 +499,7 @@ components:
         type:
           type: string
           description: >-
-            The kind of event being ingested. Combined with the source's
+            The kind of event being submitted. Combined with the source's
             slug, this forms the topic used to route the resulting envelope
             to destinations ("<source>.<type>"). Must contain only
             alphanumeric characters, ".", "_", or "-", with no spaces. It is
@@ -515,7 +515,7 @@ components:
           format: uuid
           description: >-
             Optional client-supplied UUID for the resulting envelope, useful
-            for making ingestion idempotent (e.g. keying it off an event ID
+            for making submission idempotent (e.g. keying it off an event ID
             already used upstream). When omitted, a UUIDv7 is generated.
             When supplied, it must not already belong to another envelope.
           example: 0192a5c8-4c7f-7e5b-9d3f-5a6b7c8d9e0f

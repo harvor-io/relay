@@ -2,8 +2,10 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/gofrs/uuid/v5"
@@ -23,7 +25,16 @@ const (
 	// maxSlugCandidates caps how many numeric suffixes (name, name-2, name-3…)
 	// the service tries when auto-deriving a unique slug before giving up.
 	maxSlugCandidates = 50
+
+	// maxSourceEventTypeLength bounds the caller-supplied event type. A
+	// generous limit meant to reject obviously malformed input, not to
+	// encode product policy.
+	maxSourceEventTypeLength = 255
 )
+
+// sourceEventTypePattern matches a valid event type: alphanumeric characters
+// plus ".", "_", and "-", with no whitespace.
+var sourceEventTypePattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
 // Errors returned by SourceService. Callers should compare against these with
 // errors.Is rather than inspecting messages.
@@ -60,6 +71,34 @@ var (
 
 	// ErrSourceIDInvalid means an explicitly supplied ID is not a valid UUID.
 	ErrSourceIDInvalid = errors.New("source id must be a UUID")
+
+	// ErrSourceNotActive means the source has been deactivated and is not
+	// currently accepting events.
+	ErrSourceNotActive = errors.New("source not active")
+
+	// ErrSourceEventTypeRequired means the request body's type field was
+	// empty.
+	ErrSourceEventTypeRequired = errors.New("type is required")
+
+	// ErrSourceEventTypeInvalid means the supplied type contained characters
+	// other than alphanumerics, ".", "_", or "-".
+	ErrSourceEventTypeInvalid = errors.New("type must contain only alphanumeric characters, '.', '_', and '-'")
+
+	// ErrSourceEventTypeTooLong means the supplied type exceeded the length
+	// bound.
+	ErrSourceEventTypeTooLong = fmt.Errorf("type must be at most %d characters", maxSourceEventTypeLength)
+
+	// ErrSourceEventDataRequired means the request body's data field was
+	// absent.
+	ErrSourceEventDataRequired = errors.New("data is required")
+
+	// ErrSourceEventIDInvalid means an explicitly supplied envelope_id is not
+	// a valid UUID.
+	ErrSourceEventIDInvalid = errors.New("envelope_id must be a UUID")
+
+	// ErrSourceEventIDTaken means an explicitly supplied envelope_id already
+	// belongs to another envelope.
+	ErrSourceEventIDTaken = errors.New("envelope_id is already in use")
 )
 
 // SourceService is the source-management use-case API: the operations callers
@@ -98,19 +137,31 @@ type SourceService interface {
 
 	// Delete removes the source with the given ID, or returns ErrSourceNotFound.
 	Delete(ctx context.Context, id uuid.UUID) error
+
+	// CreateEvent validates input and persists a new Envelope on behalf of
+	// an already-authenticated source. Its type is combined with source's
+	// slug to form the topic ("<slug>.<type>") used later to route the
+	// Envelope to Destinations. It returns ErrSourceNotActive if source has
+	// been deactivated, ErrSourceEventTypeRequired, ErrSourceEventTypeInvalid,
+	// ErrSourceEventTypeTooLong, or ErrSourceEventDataRequired when input is
+	// invalid, ErrSourceEventIDInvalid if a supplied envelope ID is not a
+	// UUID, or ErrSourceEventIDTaken if it already belongs to another
+	// Envelope.
+	CreateEvent(ctx context.Context, source *models.Source, input CreateSourceEventInput) (*models.Envelope, error)
 }
 
 // sourceService is the default SourceService, backed by a
-// repositories.SourceRepository.
+// repositories.SourceRepository and a repositories.EnvelopeRepository.
 type sourceService struct {
-	sources repositories.SourceRepository
+	sources   repositories.SourceRepository
+	envelopes repositories.EnvelopeRepository
 }
 
 var _ SourceService = (*sourceService)(nil)
 
-// NewSourceService returns a SourceService backed by sources.
-func NewSourceService(sources repositories.SourceRepository) SourceService {
-	return &sourceService{sources: sources}
+// NewSourceService returns a SourceService backed by sources and envelopes.
+func NewSourceService(sources repositories.SourceRepository, envelopes repositories.EnvelopeRepository) SourceService {
+	return &sourceService{sources: sources, envelopes: envelopes}
 }
 
 // CreateSourceInput carries the caller-supplied fields for a new source. The
@@ -138,6 +189,25 @@ type CreateSourceInput struct {
 type UpdateSourceInput struct {
 	Name        *string
 	Description *string
+}
+
+// CreateSourceEventInput carries the caller-supplied fields for a new event
+// submitted to a source.
+type CreateSourceEventInput struct {
+	// Type identifies the kind of event within the source, e.g.
+	// "user.created". Combined with the source's slug, it forms the
+	// Envelope's topic. Required; must contain only alphanumeric characters,
+	// ".", "_", or "-".
+	Type string
+
+	// Data is the event payload, stored verbatim as the Envelope's message.
+	// Required; may be any JSON value, including an explicit null.
+	Data json.RawMessage
+
+	// EnvelopeID is an optional client-supplied UUID for the Envelope. When
+	// empty, a UUIDv7 is generated. When set, it must be a valid UUID and
+	// must not already belong to another Envelope.
+	EnvelopeID string
 }
 
 // Get returns the source with the given ID, or ErrSourceNotFound.
@@ -369,6 +439,67 @@ func (s *sourceService) Delete(ctx context.Context, id uuid.UUID) error {
 		return mapSourceRepoError("delete source", err)
 	}
 	return nil
+}
+
+// CreateEvent validates input and persists a new Envelope for source.
+func (s *sourceService) CreateEvent(ctx context.Context, source *models.Source, input CreateSourceEventInput) (*models.Envelope, error) {
+	if !source.IsActive {
+		return nil, ErrSourceNotActive
+	}
+
+	switch {
+	case input.Type == "":
+		return nil, ErrSourceEventTypeRequired
+	case len(input.Type) > maxSourceEventTypeLength:
+		return nil, ErrSourceEventTypeTooLong
+	case !sourceEventTypePattern.MatchString(input.Type):
+		return nil, ErrSourceEventTypeInvalid
+	case len(input.Data) == 0:
+		return nil, ErrSourceEventDataRequired
+	}
+
+	id, err := s.resolveEnvelopeID(ctx, input.EnvelopeID)
+	if err != nil {
+		return nil, err
+	}
+
+	envelope := &models.Envelope{
+		ID:       id,
+		SourceID: source.ID,
+		Source:   source.Slug,
+		Type:     input.Type,
+		Data:     input.Data,
+	}
+	if err := s.envelopes.Create(ctx, envelope); err != nil {
+		return nil, fmt.Errorf("services: create envelope: %w", err)
+	}
+	return envelope, nil
+
+	// TODO: transactionally publish to our eventbus
+}
+
+// resolveEnvelopeID returns the UUID to persist for a new Envelope. An empty
+// provided value returns the nil UUID, so the repository generates a
+// UUIDv7. A non-empty value must parse as a UUID and must not already be in
+// use.
+func (s *sourceService) resolveEnvelopeID(ctx context.Context, provided string) (uuid.UUID, error) {
+	if provided == "" {
+		return uuid.Nil, nil
+	}
+
+	id, err := uuid.FromString(provided)
+	if err != nil {
+		return uuid.Nil, ErrSourceEventIDInvalid
+	}
+
+	switch _, err := s.envelopes.Get(ctx, id); {
+	case err == nil:
+		return uuid.Nil, ErrSourceEventIDTaken
+	case errors.Is(err, repositories.ErrNotFound):
+		return id, nil
+	default:
+		return uuid.Nil, fmt.Errorf("services: look up envelope id: %w", err)
+	}
 }
 
 // normaliseDescription trims the optional description and collapses an empty

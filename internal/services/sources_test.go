@@ -86,11 +86,47 @@ func (f *fakeSourceRepo) Delete(_ context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// fakeEnvelopeRepo is an in-memory repositories.EnvelopeRepository for tests.
+type fakeEnvelopeRepo struct {
+	items map[uuid.UUID]models.Envelope
+}
+
+func newFakeEnvelopeRepo() *fakeEnvelopeRepo {
+	return &fakeEnvelopeRepo{items: map[uuid.UUID]models.Envelope{}}
+}
+
+func (f *fakeEnvelopeRepo) Create(_ context.Context, envelope *models.Envelope) error {
+	if envelope.ID.IsNil() {
+		envelope.ID = uuid.Must(uuid.NewV7())
+	}
+	if envelope.CreatedAt.IsZero() {
+		envelope.CreatedAt = time.Now().UTC()
+	}
+	f.items[envelope.ID] = *envelope
+	return nil
+}
+
+func (f *fakeEnvelopeRepo) Get(_ context.Context, id uuid.UUID) (*models.Envelope, error) {
+	envelope, ok := f.items[id]
+	if !ok {
+		return nil, repositories.ErrNotFound
+	}
+	return &envelope, nil
+}
+
+func (f *fakeEnvelopeRepo) List(_ context.Context) ([]models.Envelope, error) {
+	out := make([]models.Envelope, 0, len(f.items))
+	for _, e := range f.items {
+		out = append(out, e)
+	}
+	return out, nil
+}
+
 func ptr(s string) *string { return &s }
 
 func TestSourceServiceCreate(t *testing.T) {
 	t.Run("trims fields and assigns identity", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
 
 		source, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name:        "  orders  ",
@@ -117,7 +153,7 @@ func TestSourceServiceCreate(t *testing.T) {
 	})
 
 	t.Run("blank description becomes nil", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
 
 		source, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name:        "orders",
@@ -132,7 +168,7 @@ func TestSourceServiceCreate(t *testing.T) {
 	})
 
 	t.Run("rejects empty name", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
 
 		_, err := svc.Create(context.Background(), services.CreateSourceInput{Name: "   "})
 		if !errors.Is(err, services.ErrSourceNameRequired) {
@@ -141,7 +177,7 @@ func TestSourceServiceCreate(t *testing.T) {
 	})
 
 	t.Run("rejects over-long name", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
 
 		_, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name: strings.Repeat("a", 256),
@@ -152,7 +188,7 @@ func TestSourceServiceCreate(t *testing.T) {
 	})
 
 	t.Run("rejects over-long description", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
 
 		_, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name:        "orders",
@@ -166,7 +202,7 @@ func TestSourceServiceCreate(t *testing.T) {
 
 func TestSourceServiceCreateSlug(t *testing.T) {
 	t.Run("derives a url-safe slug from the name", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
 
 		source, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name: "Order Events (US)",
@@ -180,7 +216,7 @@ func TestSourceServiceCreateSlug(t *testing.T) {
 	})
 
 	t.Run("suffixes a derived slug that collides", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
 
 		first, err := svc.Create(context.Background(), services.CreateSourceInput{Name: "orders"})
 		if err != nil {
@@ -196,7 +232,7 @@ func TestSourceServiceCreateSlug(t *testing.T) {
 	})
 
 	t.Run("keeps an explicit valid slug", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
 
 		source, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name: "Orders",
@@ -211,7 +247,7 @@ func TestSourceServiceCreateSlug(t *testing.T) {
 	})
 
 	t.Run("rejects a non-url-safe explicit slug", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
 
 		_, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name: "Orders",
@@ -224,7 +260,7 @@ func TestSourceServiceCreateSlug(t *testing.T) {
 
 	t.Run("rejects an explicit slug already in use", func(t *testing.T) {
 		repo := newFakeSourceRepo()
-		svc := services.NewSourceService(repo)
+		svc := services.NewSourceService(repo, newFakeEnvelopeRepo())
 
 		if _, err := svc.Create(context.Background(), services.CreateSourceInput{
 			Name: "Orders",
@@ -242,7 +278,7 @@ func TestSourceServiceCreateSlug(t *testing.T) {
 	})
 
 	t.Run("rejects a name no slug can be derived from", func(t *testing.T) {
-		svc := services.NewSourceService(newFakeSourceRepo())
+		svc := services.NewSourceService(newFakeSourceRepo(), newFakeEnvelopeRepo())
 
 		_, err := svc.Create(context.Background(), services.CreateSourceInput{Name: "!!!"})
 		if !errors.Is(err, services.ErrSourceSlugUnderivable) {
@@ -253,7 +289,7 @@ func TestSourceServiceCreateSlug(t *testing.T) {
 
 func TestSourceServiceGet(t *testing.T) {
 	repo := newFakeSourceRepo()
-	svc := services.NewSourceService(repo)
+	svc := services.NewSourceService(repo, newFakeEnvelopeRepo())
 
 	created, err := svc.Create(context.Background(), services.CreateSourceInput{Name: "orders"})
 	if err != nil {
@@ -275,7 +311,7 @@ func TestSourceServiceGet(t *testing.T) {
 
 func TestSourceServiceDelete(t *testing.T) {
 	repo := newFakeSourceRepo()
-	svc := services.NewSourceService(repo)
+	svc := services.NewSourceService(repo, newFakeEnvelopeRepo())
 
 	created, err := svc.Create(context.Background(), services.CreateSourceInput{Name: "orders"})
 	if err != nil {

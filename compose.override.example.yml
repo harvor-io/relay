@@ -6,3 +6,6 @@ services:
   app:
     ports:
       - "8080:8080"
+  rabbitmq:
+    ports:
+      - "5672:5672"

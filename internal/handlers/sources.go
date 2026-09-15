@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 
+	"github.com/harvor-io/relay/internal/middleware"
 	"github.com/harvor-io/relay/internal/models"
 	"github.com/harvor-io/relay/internal/services"
 )
@@ -16,11 +17,15 @@ import (
 // SourceHandler serves the /sources resource.
 type SourceHandler struct {
 	sources services.SourceService
+	// eventAuth authenticates POST /sources/{id}/events requests (see
+	// middleware.HMACAuth).
+	eventAuth func(http.Handler) http.Handler
 }
 
-// NewSourceHandler constructs a SourceHandler backed by sources.
-func NewSourceHandler(sources services.SourceService) *SourceHandler {
-	return &SourceHandler{sources: sources}
+// NewSourceHandler constructs a SourceHandler backed by sources. eventAuth
+// authenticates requests to CreateSourceEvent before it runs.
+func NewSourceHandler(sources services.SourceService, eventAuth func(http.Handler) http.Handler) *SourceHandler {
+	return &SourceHandler{sources: sources, eventAuth: eventAuth}
 }
 
 // RegisterRoutes mounts the handler's routes on r.
@@ -34,6 +39,7 @@ func (h *SourceHandler) RegisterRoutes(r chi.Router) {
 			r.Delete("/", h.DeleteSource)
 			r.Post("/activate", h.ActivateSource)
 			r.Post("/deactivate", h.DeactivateSource)
+			r.With(h.eventAuth).Post("/events", h.CreateSourceEvent)
 		})
 	})
 }
@@ -85,6 +91,38 @@ type createSourceRequest struct {
 type updateSourceRequest struct {
 	Name        *string `json:"name"`
 	Description *string `json:"description"`
+}
+
+// envelopeResource is the JSON representation of an envelope. It is an
+// explicit projection of models.Envelope: only the fields that make up the
+// REST resource.
+type envelopeResource struct {
+	ID        string          `json:"id"`
+	SourceID  string          `json:"source_id"`
+	Source    string          `json:"source"`
+	Type      string          `json:"type"`
+	Topic     string          `json:"topic"`
+	Data      json.RawMessage `json:"data"`
+	CreatedAt time.Time       `json:"created_at"`
+}
+
+func newEnvelopeResource(e *models.Envelope) envelopeResource {
+	return envelopeResource{
+		ID:        e.ID.String(),
+		SourceID:  e.SourceID.String(),
+		Source:    e.Source,
+		Type:      e.Type,
+		Topic:     e.Topic().String(),
+		Data:      e.Data,
+		CreatedAt: e.CreatedAt,
+	}
+}
+
+// createSourceEventRequest is the accepted body for POST /sources/{id}/events.
+type createSourceEventRequest struct {
+	Type       string          `json:"type"`
+	Data       json.RawMessage `json:"data"`
+	EnvelopeID string          `json:"envelope_id"`
 }
 
 // ListSources returns every source as a JSON array.
@@ -199,20 +237,58 @@ func (h *SourceHandler) DeactivateSource(w http.ResponseWriter, r *http.Request)
 	render.JSON(w, r, newSourceResource(source))
 }
 
+// CreateSourceEvent accepts an event from an already-authenticated Source
+// (attached to the request context by middleware.HMACAuth) and persists it
+// as an Envelope, returning it with a 201.
+func (h *SourceHandler) CreateSourceEvent(w http.ResponseWriter, r *http.Request) {
+	source, ok := middleware.SourceFromContext(r.Context())
+	if !ok {
+		renderError(w, r, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	var body createSourceEventRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		renderError(w, r, http.StatusBadRequest, "request body is not valid JSON")
+		return
+	}
+
+	envelope, err := h.sources.CreateEvent(r.Context(), source, services.CreateSourceEventInput{
+		Type:       body.Type,
+		Data:       body.Data,
+		EnvelopeID: body.EnvelopeID,
+	})
+	if err != nil {
+		renderSourceError(w, r, err)
+		return
+	}
+
+	render.Status(r, http.StatusCreated)
+	render.JSON(w, r, newEnvelopeResource(envelope))
+}
+
 // renderSourceError maps the errors returned by services.SourceService onto
 // HTTP responses.
 func renderSourceError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, services.ErrSourceNotFound):
 		renderError(w, r, http.StatusNotFound, err.Error())
-	case errors.Is(err, services.ErrSourceSlugTaken), errors.Is(err, services.ErrSourceIDTaken):
+	case errors.Is(err, services.ErrSourceSlugTaken),
+		errors.Is(err, services.ErrSourceIDTaken),
+		errors.Is(err, services.ErrSourceEventIDTaken):
 		renderError(w, r, http.StatusConflict, err.Error())
 	case errors.Is(err, services.ErrSourceNameRequired),
 		errors.Is(err, services.ErrSourceNameTooLong),
 		errors.Is(err, services.ErrSourceDescriptionTooLong),
 		errors.Is(err, services.ErrSourceSlugInvalid),
 		errors.Is(err, services.ErrSourceSlugUnderivable),
-		errors.Is(err, services.ErrSourceIDInvalid):
+		errors.Is(err, services.ErrSourceIDInvalid),
+		errors.Is(err, services.ErrSourceNotActive),
+		errors.Is(err, services.ErrSourceEventTypeRequired),
+		errors.Is(err, services.ErrSourceEventTypeInvalid),
+		errors.Is(err, services.ErrSourceEventTypeTooLong),
+		errors.Is(err, services.ErrSourceEventDataRequired),
+		errors.Is(err, services.ErrSourceEventIDInvalid):
 		renderError(w, r, http.StatusUnprocessableEntity, err.Error())
 	default:
 		renderError(w, r, http.StatusInternalServerError, "internal server error")

@@ -13,17 +13,47 @@ services:
       # Local-only default; not safe for production. Generate a real key with
       # `openssl rand -base64 32` and override for any shared environment.
       SECRETS_ENCRYPTION_KEY: "zDyU45SrX4e+F6jXLeAXfogo2DP749N9yhKWqUM4gvE="
+      # "rabbitmq", not "localhost": the broker is a separate container on
+      # the compose network, reachable by service name.
+      RABBITMQ_URI: "amqp://guest:guest@rabbitmq:5672/"
     volumes:
       - relay-data:/app
     expose:
       - "8080"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     healthcheck:
       # 127.0.0.1, not localhost: localhost can resolve to ::1 first and an
       # IPv4-only listener then fails the probe.
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/api/v1/healthz"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "-q",
+          "--spider",
+          "http://127.0.0.1:8080/api/v1/healthz",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
 
+  rabbitmq:
+    image: rabbitmq:4.3-management
+    expose:
+      - "5672"
+    ports:
+      # Management UI, for local inspection only; the app talks to 5672 over
+      # the compose network via `expose` above.
+      - "15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   relay-data:
+  rabbitmq-data:
