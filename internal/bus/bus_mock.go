@@ -22,6 +22,9 @@ var _ Bus = &BusMock{}
 //			AddDestinationFunc: func(ctx context.Context, destination *models.Destination) error {
 //				panic("mock out the AddDestination method")
 //			},
+//			ConsumeFunc: func(ctx context.Context, destination *models.Destination, handle EnvelopeHandler) error {
+//				panic("mock out the Consume method")
+//			},
 //			PublishFunc: func(ctx context.Context, envelope *models.Envelope) error {
 //				panic("mock out the Publish method")
 //			},
@@ -47,6 +50,9 @@ type BusMock struct {
 	// AddDestinationFunc mocks the AddDestination method.
 	AddDestinationFunc func(ctx context.Context, destination *models.Destination) error
 
+	// ConsumeFunc mocks the Consume method.
+	ConsumeFunc func(ctx context.Context, destination *models.Destination, handle EnvelopeHandler) error
+
 	// PublishFunc mocks the Publish method.
 	PublishFunc func(ctx context.Context, envelope *models.Envelope) error
 
@@ -70,6 +76,15 @@ type BusMock struct {
 			Ctx context.Context
 			// Destination is the destination argument value.
 			Destination *models.Destination
+		}
+		// Consume holds details about calls to the Consume method.
+		Consume []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Destination is the destination argument value.
+			Destination *models.Destination
+			// Handle is the handle argument value.
+			Handle EnvelopeHandler
 		}
 		// Publish holds details about calls to the Publish method.
 		Publish []struct {
@@ -110,6 +125,7 @@ type BusMock struct {
 		}
 	}
 	lockAddDestination    sync.RWMutex
+	lockConsume           sync.RWMutex
 	lockPublish           sync.RWMutex
 	lockRemoveDestination sync.RWMutex
 	lockSetup             sync.RWMutex
@@ -150,6 +166,46 @@ func (mock *BusMock) AddDestinationCalls() []struct {
 	mock.lockAddDestination.RLock()
 	calls = mock.calls.AddDestination
 	mock.lockAddDestination.RUnlock()
+	return calls
+}
+
+// Consume calls ConsumeFunc.
+func (mock *BusMock) Consume(ctx context.Context, destination *models.Destination, handle EnvelopeHandler) error {
+	if mock.ConsumeFunc == nil {
+		panic("BusMock.ConsumeFunc: method is nil but Bus.Consume was just called")
+	}
+	callInfo := struct {
+		Ctx         context.Context
+		Destination *models.Destination
+		Handle      EnvelopeHandler
+	}{
+		Ctx:         ctx,
+		Destination: destination,
+		Handle:      handle,
+	}
+	mock.lockConsume.Lock()
+	mock.calls.Consume = append(mock.calls.Consume, callInfo)
+	mock.lockConsume.Unlock()
+	return mock.ConsumeFunc(ctx, destination, handle)
+}
+
+// ConsumeCalls gets all the calls that were made to Consume.
+// Check the length with:
+//
+//	len(mockedBus.ConsumeCalls())
+func (mock *BusMock) ConsumeCalls() []struct {
+	Ctx         context.Context
+	Destination *models.Destination
+	Handle      EnvelopeHandler
+} {
+	var calls []struct {
+		Ctx         context.Context
+		Destination *models.Destination
+		Handle      EnvelopeHandler
+	}
+	mock.lockConsume.RLock()
+	calls = mock.calls.Consume
+	mock.lockConsume.RUnlock()
 	return calls
 }
 

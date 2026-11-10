@@ -19,11 +19,11 @@ import (
 // implementation maps destinations and subscriptions onto its broker's own
 // primitives, and none of those primitives leak out of it.
 //
-// Every method is idempotent: calling it again with the same input succeeds
-// and leaves the bus as the first call did. Relay calls the bus after the
-// database write it follows, so a failed call can be retried, and an
-// operation can be repeated to repair the bus, without either making things
-// worse.
+// Every method that changes the bus is idempotent: calling it again with the
+// same input succeeds and leaves the bus as the first call did. Relay calls
+// the bus after the database write it follows, so a failed call can be
+// retried, and an operation can be repeated to repair the bus, without
+// either making things worse. Consume only takes envelopes off the bus.
 type Bus interface {
 	// Setup idempotently provisions whatever the bus needs to operate, such
 	// as exchanges, topics, or queues. It is safe to call on every startup:
@@ -55,4 +55,18 @@ type Bus interface {
 	// Topic that isn't routed, or a destination the bus doesn't have, is
 	// not an error. Empty subscriptions is a no-op.
 	Unsubscribe(ctx context.Context, destination *models.Destination, subscriptions []models.Subscription) error
+
+	// Consume hands the envelopes waiting for destination to handle, one at
+	// a time in the order they arrived, adding destination first if the bus
+	// doesn't have it. When handle returns nil, the envelope is done with.
+	// When it returns an error, the envelope goes back to wait for
+	// destination and is handed to handle again, so handle can see the
+	// same envelope more than once. Consume blocks until ctx is done,
+	// returning nil, or until the bus stops handing it envelopes,
+	// returning an error.
+	Consume(ctx context.Context, destination *models.Destination, handle EnvelopeHandler) error
 }
+
+// EnvelopeHandler handles one envelope Consume takes off the bus for a
+// destination. ctx is the one Consume was called with.
+type EnvelopeHandler func(ctx context.Context, envelope *models.Envelope) error

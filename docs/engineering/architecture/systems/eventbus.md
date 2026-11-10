@@ -36,12 +36,17 @@ what's stored:
 - Deleting a destination deletes its queue.
 
 `Bus` speaks in destinations and subscriptions, and the driver maps them onto
-queues and bindings. Every method is idempotent, which the interface's doc
-comment makes the contract for every driver. The services write the database
-first and call the bus after, so a retried or repeated call is always safe.
+queues and bindings. Every method that changes the bus is idempotent, which
+the interface's doc comment makes the contract for every driver. The services
+write the database first and call the bus after, so a retried or repeated call
+is always safe.
 
-The target shape still to come: a delivery worker per destination consumes its
-queue and delivers by the destination's type. Nothing consumes the queues yet.
+`Bus.Consume` takes a destination's envelopes off its queue and hands them to a
+handler, for [delivery](../features/delivery.md). It holds one channel per
+call with a prefetch of one, so the handler gets one envelope at a time, in
+order. The driver acks when the handler returns nil and nacks with requeue
+when it returns an error. Nothing calls `Consume` yet: the worker that runs one
+consumer per active destination is still to come.
 
 ## Tradeoffs
 
@@ -104,11 +109,21 @@ queue and delivers by the destination's type. Nothing consumes the queues yet.
   `models.Envelope`.
 - `Publish` opens a new channel per message. Fine at current volume; the first
   place to look if publish throughput becomes a problem.
+- `Consume` requeues on every handler error, so delivery is at least once, and
+  an envelope that keeps failing is redelivered immediately and blocks the
+  envelopes behind it in that destination's queue.
+- A message `Consume` can't decode is rejected without requeue, which drops it,
+  and `Consume` returns an error. Relay publishes every message itself, so this
+  means a bug or a message published to the queue by hand.
+- `Consume` returns nil when its context is done, and an error when the queue
+  stops delivering, such as when the connection drops. Since the connection is
+  never re-established, restarting `Consume` after that fails too.
 
 ## Known gaps
 
-- **Queues have no cap, and nothing consumes them:** every event an active
-  destination subscribes to piles up in its queue, using broker storage, until
+- **Queues have no cap, and nothing consumes them:** `Consume` exists, but
+  nothing calls it, so every event an active destination subscribes to piles
+  up in its queue, using broker storage, until
   someone deletes the destination or purges the queue by hand. A cap added
   later means deleting each queue and declaring it again, because RabbitMQ
   refuses to redeclare a queue with different arguments. **Until:** delivery
@@ -119,14 +134,17 @@ queue and delivers by the destination's type. Nothing consumes the queues yet.
 
 ## Changing it
 
-**Changing the `Bus` interface:** keep every method idempotent, then run
+**Changing the `Bus` interface:** keep every method that changes the bus
+idempotent, then run
 `go generate ./internal/bus/` to regenerate `BusMock`, or the acceptance tests
 stop compiling.
 
 **Adding an eventbus driver:** implement `bus.Bus` in a new package under
 `internal/bus/`, with every method idempotent, including `Setup`. Map
 destinations and subscriptions onto the broker's own primitives, translating a
-`*` into its wildcard, and select it by `EVENTBUS_DRIVER`
+`*` into its wildcard. `Consume` must hand over one envelope at a time, in
+order, and redeliver one the handler fails. Select the driver by
+`EVENTBUS_DRIVER`
 in `serve.go` and `internal/config`. Keep the routing key as the envelope's topic
 and the body as the same wire format, or consumers break when the driver
 changes.
