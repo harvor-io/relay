@@ -48,10 +48,8 @@ server generates one (UUIDv7).
 
 ## Pagination
 
-List endpoints are paginated from Beta (see the `stability` skill). Before
-then, a list may return everything. Prefer cursor pagination (`after`,
-`before`, `size`) through `exalynt/turn`, with a `Link` header; offset
-pagination is fine where cursors don't fit.
+Every list endpoint is paginated through `exalynt/turn`, with pagination
+information in headers, never the body. See the pagination rule.
 
 ## Status codes and errors
 
