@@ -13,7 +13,8 @@ import (
 	"github.com/harvor-io/relay/internal/services"
 )
 
-// SourceKeyHandler serves the /sources/{id}/keys resource.
+// SourceKeyHandler serves source keys: the /sources/{id}/keys collection,
+// and each key at /source-keys/{id}.
 type SourceKeyHandler struct {
 	keys services.SourceKeyService
 }
@@ -23,18 +24,18 @@ func NewSourceKeyHandler(keys services.SourceKeyService) *SourceKeyHandler {
 	return &SourceKeyHandler{keys: keys}
 }
 
-// RegisterRoutes mounts the handler's routes on r. It shares the "id" path
-// parameter with SourceHandler's "/sources/{id}" route.
+// RegisterRoutes mounts the handler's routes on r. The collection shares the
+// "id" path parameter with SourceHandler's "/sources/{id}" route.
 func (h *SourceKeyHandler) RegisterRoutes(r chi.Router) {
 	r.Route("/sources/{id}/keys", func(r chi.Router) {
 		r.Get("/", h.ListSourceKeys)
 		r.Post("/", h.CreateSourceKey)
-		r.Route("/{keyID}", func(r chi.Router) {
-			r.Get("/", h.GetSourceKey)
-			r.Delete("/", h.DeleteSourceKey)
-			r.Post("/activate", h.ActivateSourceKey)
-			r.Post("/deactivate", h.DeactivateSourceKey)
-		})
+	})
+	r.Route("/source-keys/{id}", func(r chi.Router) {
+		r.Get("/", h.GetSourceKey)
+		r.Delete("/", h.DeleteSourceKey)
+		r.Post("/activate", h.ActivateSourceKey)
+		r.Post("/deactivate", h.DeactivateSourceKey)
 	})
 }
 
@@ -133,15 +134,11 @@ func (h *SourceKeyHandler) CreateSourceKey(w http.ResponseWriter, r *http.Reques
 
 // GetSourceKey returns a single key by ID.
 func (h *SourceKeyHandler) GetSourceKey(w http.ResponseWriter, r *http.Request) {
-	sourceID, ok := urlUUID(w, r)
+	id, ok := urlUUID(w, r)
 	if !ok {
 		return
 	}
-	keyID, ok := urlUUIDParam(w, r, "keyID")
-	if !ok {
-		return
-	}
-	key, err := h.keys.Get(r.Context(), sourceID, keyID)
+	key, err := h.keys.Get(r.Context(), id)
 	if err != nil {
 		renderSourceKeyError(w, r, err)
 		return
@@ -151,15 +148,11 @@ func (h *SourceKeyHandler) GetSourceKey(w http.ResponseWriter, r *http.Request) 
 
 // ActivateSourceKey marks a key as active.
 func (h *SourceKeyHandler) ActivateSourceKey(w http.ResponseWriter, r *http.Request) {
-	sourceID, ok := urlUUID(w, r)
+	id, ok := urlUUID(w, r)
 	if !ok {
 		return
 	}
-	keyID, ok := urlUUIDParam(w, r, "keyID")
-	if !ok {
-		return
-	}
-	key, err := h.keys.Activate(r.Context(), sourceID, keyID)
+	key, err := h.keys.Activate(r.Context(), id)
 	if err != nil {
 		renderSourceKeyError(w, r, err)
 		return
@@ -169,15 +162,11 @@ func (h *SourceKeyHandler) ActivateSourceKey(w http.ResponseWriter, r *http.Requ
 
 // DeactivateSourceKey marks a key as inactive.
 func (h *SourceKeyHandler) DeactivateSourceKey(w http.ResponseWriter, r *http.Request) {
-	sourceID, ok := urlUUID(w, r)
+	id, ok := urlUUID(w, r)
 	if !ok {
 		return
 	}
-	keyID, ok := urlUUIDParam(w, r, "keyID")
-	if !ok {
-		return
-	}
-	key, err := h.keys.Deactivate(r.Context(), sourceID, keyID)
+	key, err := h.keys.Deactivate(r.Context(), id)
 	if err != nil {
 		renderSourceKeyError(w, r, err)
 		return
@@ -187,15 +176,11 @@ func (h *SourceKeyHandler) DeactivateSourceKey(w http.ResponseWriter, r *http.Re
 
 // DeleteSourceKey removes a key by ID and returns 204.
 func (h *SourceKeyHandler) DeleteSourceKey(w http.ResponseWriter, r *http.Request) {
-	sourceID, ok := urlUUID(w, r)
+	id, ok := urlUUID(w, r)
 	if !ok {
 		return
 	}
-	keyID, ok := urlUUIDParam(w, r, "keyID")
-	if !ok {
-		return
-	}
-	if err := h.keys.Delete(r.Context(), sourceID, keyID); err != nil {
+	if err := h.keys.Delete(r.Context(), id); err != nil {
 		renderSourceKeyError(w, r, err)
 		return
 	}

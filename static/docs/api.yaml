@@ -62,12 +62,12 @@ paths:
     $ref: "./paths/sources/events.yml"
   /sources/{id}/keys:
     $ref: "./paths/sources/keys/keys.yml"
-  /sources/{id}/keys/{keyID}:
-    $ref: "./paths/sources/keys/key.yml"
-  /sources/{id}/keys/{keyID}/activate:
-    $ref: "./paths/sources/keys/activate.yml"
-  /sources/{id}/keys/{keyID}/deactivate:
-    $ref: "./paths/sources/keys/deactivate.yml"
+  /source-keys/{id}:
+    $ref: "./paths/source-keys/source-key.yml"
+  /source-keys/{id}/activate:
+    $ref: "./paths/source-keys/activate.yml"
+  /source-keys/{id}/deactivate:
+    $ref: "./paths/source-keys/deactivate.yml"
   /destinations:
     $ref: "./paths/destinations/destinations.yml"
   /destinations/{id}:

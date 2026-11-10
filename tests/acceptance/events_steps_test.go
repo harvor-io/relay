@@ -111,7 +111,7 @@ func (w *events) keyIsDeactivated(ctx context.Context, name string) error {
 	if !ok {
 		return fmt.Errorf("no key %q in this scenario", name)
 	}
-	_, err := w.relay.keys.Deactivate(ctx, key.sourceID, key.id)
+	_, err := w.relay.keys.Deactivate(ctx, key.id)
 	return err
 }
 

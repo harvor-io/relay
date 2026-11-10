@@ -32,8 +32,7 @@ const (
 // Errors returned by SourceKeyService. Callers should compare against these
 // with errors.Is rather than inspecting messages.
 var (
-	// ErrSourceKeyNotFound means no key exists with the requested ID under
-	// the given source.
+	// ErrSourceKeyNotFound means no key exists with the requested ID.
 	ErrSourceKeyNotFound = errors.New("source key not found")
 
 	// ErrSourceKeyNameRequired means the supplied name was empty or
@@ -66,9 +65,8 @@ type SourceKeyService interface {
 	// an explicitly supplied ID is already in use.
 	Create(ctx context.Context, sourceID uuid.UUID, input CreateSourceKeyInput) (*models.SourceKey, string, error)
 
-	// Get returns the key with the given ID belonging to sourceID, or
-	// ErrSourceKeyNotFound.
-	Get(ctx context.Context, sourceID, id uuid.UUID) (*models.SourceKey, error)
+	// Get returns the key with the given ID, or ErrSourceKeyNotFound.
+	Get(ctx context.Context, id uuid.UUID) (*models.SourceKey, error)
 
 	// List returns the page of sourceID's keys page selects, ordered by
 	// name, then ID. It returns ErrSourceNotFound if the source does not
@@ -76,14 +74,14 @@ type SourceKeyService interface {
 	List(ctx context.Context, sourceID uuid.UUID, page cursor.Selector) (cursor.Page[models.SourceKey], error)
 
 	// Activate marks the key as active, or returns ErrSourceKeyNotFound.
-	Activate(ctx context.Context, sourceID, id uuid.UUID) (*models.SourceKey, error)
+	Activate(ctx context.Context, id uuid.UUID) (*models.SourceKey, error)
 
 	// Deactivate marks the key as inactive, or returns ErrSourceKeyNotFound.
-	Deactivate(ctx context.Context, sourceID, id uuid.UUID) (*models.SourceKey, error)
+	Deactivate(ctx context.Context, id uuid.UUID) (*models.SourceKey, error)
 
 	// Delete removes the key and its underlying secret, or returns
 	// ErrSourceKeyNotFound.
-	Delete(ctx context.Context, sourceID, id uuid.UUID) error
+	Delete(ctx context.Context, id uuid.UUID) error
 
 	// VerifySignature reports whether signature is a valid hex-encoded
 	// HMAC-SHA256 of payload, computed using the secret of any active key
@@ -194,10 +192,13 @@ func (s *sourceKeyService) decryptSecret(ctx context.Context, secretID uuid.UUID
 	return hex.EncodeToString(raw), nil
 }
 
-// Get returns the key with the given ID belonging to sourceID, or
-// ErrSourceKeyNotFound.
-func (s *sourceKeyService) Get(ctx context.Context, sourceID, id uuid.UUID) (*models.SourceKey, error) {
-	return s.getOwned(ctx, sourceID, id)
+// Get returns the key with the given ID, or ErrSourceKeyNotFound.
+func (s *sourceKeyService) Get(ctx context.Context, id uuid.UUID) (*models.SourceKey, error) {
+	key, err := s.keys.Get(ctx, id)
+	if err != nil {
+		return nil, mapSourceKeyRepoError("get source key", err)
+	}
+	return key, nil
 }
 
 // List returns the page of sourceID's keys page selects, ordered by name,
@@ -214,17 +215,17 @@ func (s *sourceKeyService) List(ctx context.Context, sourceID uuid.UUID, page cu
 }
 
 // Activate marks the key as active, or returns ErrSourceKeyNotFound.
-func (s *sourceKeyService) Activate(ctx context.Context, sourceID, id uuid.UUID) (*models.SourceKey, error) {
-	return s.setActive(ctx, sourceID, id, true)
+func (s *sourceKeyService) Activate(ctx context.Context, id uuid.UUID) (*models.SourceKey, error) {
+	return s.setActive(ctx, id, true)
 }
 
 // Deactivate marks the key as inactive, or returns ErrSourceKeyNotFound.
-func (s *sourceKeyService) Deactivate(ctx context.Context, sourceID, id uuid.UUID) (*models.SourceKey, error) {
-	return s.setActive(ctx, sourceID, id, false)
+func (s *sourceKeyService) Deactivate(ctx context.Context, id uuid.UUID) (*models.SourceKey, error) {
+	return s.setActive(ctx, id, false)
 }
 
-func (s *sourceKeyService) setActive(ctx context.Context, sourceID, id uuid.UUID, active bool) (*models.SourceKey, error) {
-	key, err := s.getOwned(ctx, sourceID, id)
+func (s *sourceKeyService) setActive(ctx context.Context, id uuid.UUID, active bool) (*models.SourceKey, error) {
+	key, err := s.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -238,8 +239,8 @@ func (s *sourceKeyService) setActive(ctx context.Context, sourceID, id uuid.UUID
 // Delete removes the key and its underlying secret, or returns
 // ErrSourceKeyNotFound. The secret is removed on a best-effort basis after
 // the key row is gone; a secret that is already missing is not an error.
-func (s *sourceKeyService) Delete(ctx context.Context, sourceID, id uuid.UUID) error {
-	key, err := s.getOwned(ctx, sourceID, id)
+func (s *sourceKeyService) Delete(ctx context.Context, id uuid.UUID) error {
+	key, err := s.Get(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -283,20 +284,6 @@ func (s *sourceKeyService) VerifySignature(ctx context.Context, sourceID uuid.UU
 		}
 	}
 	return false, nil
-}
-
-// getOwned returns the key with the given ID, scoped to sourceID.
-// ErrSourceKeyNotFound covers both a missing key and one that belongs to a
-// different source, so callers cannot distinguish the two.
-func (s *sourceKeyService) getOwned(ctx context.Context, sourceID, id uuid.UUID) (*models.SourceKey, error) {
-	key, err := s.keys.Get(ctx, id)
-	if err != nil {
-		return nil, mapSourceKeyRepoError("get source key", err)
-	}
-	if key.SourceID != sourceID {
-		return nil, ErrSourceKeyNotFound
-	}
-	return key, nil
 }
 
 // resolveID returns the UUID to persist for a new key. An empty provided

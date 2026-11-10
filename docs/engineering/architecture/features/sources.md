@@ -13,8 +13,6 @@ Sources, their keys, and the signed events endpoint they publish through.
 - `HMACAuth` checks the signature before `CreateEvent` checks whether the source
   is active, so an inactive source still answers 401 for a bad signature and
   422 only for a good one.
-- A key that belongs to another source answers 404, the same as one that doesn't
-  exist, so callers can't probe for key IDs.
 - The schema has no foreign keys, so `sourceService.Delete` deletes the source's
   keys and their secrets itself, after the source row. Like deleting one key,
   that's best effort: a failure partway leaves keys or secrets nobody can reach.

@@ -23,42 +23,42 @@ test("GET /sources/{id}/keys lists a source's keys", async ({ request }) => {
   expect(body.some((item) => item.id === key.id)).toBe(true);
 });
 
-test("GET /sources/{id}/keys/{key_id} returns a key", async ({ request }) => {
+test("GET /source-keys/{id} returns a key", async ({ request }) => {
   const source = await createSource(request);
   const key = await createSourceKey(request, source.id);
 
-  const response = await request.get(`sources/${source.id}/keys/${key.id}`);
+  const response = await request.get(`source-keys/${key.id}`);
 
   expect(response.status()).toBe(200);
   expect(await response.json()).toMatchObject({ id: key.id, source_id: source.id, is_active: true });
 });
 
-test("POST /sources/{id}/keys/{key_id}/deactivate deactivates a key", async ({ request }) => {
+test("POST /source-keys/{id}/deactivate deactivates a key", async ({ request }) => {
   const source = await createSource(request);
   const key = await createSourceKey(request, source.id);
 
-  const response = await request.post(`sources/${source.id}/keys/${key.id}/deactivate`);
+  const response = await request.post(`source-keys/${key.id}/deactivate`);
 
   expect(response.status()).toBe(200);
   expect(await response.json()).toMatchObject({ id: key.id, is_active: false });
 });
 
-test("POST /sources/{id}/keys/{key_id}/activate activates a key", async ({ request }) => {
+test("POST /source-keys/{id}/activate activates a key", async ({ request }) => {
   const source = await createSource(request);
   const key = await createSourceKey(request, source.id);
-  await request.post(`sources/${source.id}/keys/${key.id}/deactivate`);
+  await request.post(`source-keys/${key.id}/deactivate`);
 
-  const response = await request.post(`sources/${source.id}/keys/${key.id}/activate`);
+  const response = await request.post(`source-keys/${key.id}/activate`);
 
   expect(response.status()).toBe(200);
   expect(await response.json()).toMatchObject({ id: key.id, is_active: true });
 });
 
-test("DELETE /sources/{id}/keys/{key_id} deletes a key", async ({ request }) => {
+test("DELETE /source-keys/{id} deletes a key", async ({ request }) => {
   const source = await createSource(request);
   const key = await createSourceKey(request, source.id);
 
-  const response = await request.delete(`sources/${source.id}/keys/${key.id}`);
+  const response = await request.delete(`source-keys/${key.id}`);
 
   expect(response.status()).toBe(204);
 });

@@ -2,13 +2,6 @@ parameters:
   - name: id
     in: path
     required: true
-    description: The source's UUID.
-    schema:
-      type: string
-      format: uuid
-  - name: keyID
-    in: path
-    required: true
     description: The key's UUID.
     schema:
       type: string
@@ -18,7 +11,7 @@ get:
   operationId: getSourceKey
   x-stability: alpha
   summary: Get a source key
-  description: Returns a single key belonging to the source.
+  description: Returns a single source key.
   tags:
     - Source Keys
   responses:
@@ -27,19 +20,19 @@ get:
       content:
         application/json:
           schema:
-            $ref: "../../../schemas.yml#/components/schemas/SourceKey"
+            $ref: "../../schemas.yml#/components/schemas/SourceKey"
     "400":
-      description: The source ID is not a valid UUID.
+      description: The ID is not a valid UUID.
       content:
         application/json:
           schema:
-            $ref: "../../../schemas.yml#/components/schemas/Error"
+            $ref: "../../schemas.yml#/components/schemas/Error"
     "404":
-      description: No such key exists for that source.
+      description: No key exists with that ID.
       content:
         application/json:
           schema:
-            $ref: "../../../schemas.yml#/components/schemas/Error"
+            $ref: "../../schemas.yml#/components/schemas/Error"
 
 delete:
   operationId: deleteSourceKey
@@ -52,14 +45,14 @@ delete:
     "204":
       description: The key was deleted.
     "400":
-      description: The source ID is not a valid UUID.
+      description: The ID is not a valid UUID.
       content:
         application/json:
           schema:
-            $ref: "../../../schemas.yml#/components/schemas/Error"
+            $ref: "../../schemas.yml#/components/schemas/Error"
     "404":
-      description: No such key exists for that source.
+      description: No key exists with that ID.
       content:
         application/json:
           schema:
-            $ref: "../../../schemas.yml#/components/schemas/Error"
+            $ref: "../../schemas.yml#/components/schemas/Error"
