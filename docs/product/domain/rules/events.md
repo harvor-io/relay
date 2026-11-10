@@ -23,9 +23,10 @@ downtime.
 ## Accepted events never change
 
 Once Relay accepts an event, neither it nor anything about it changes.
+Publishing again with an accepted event's ID is refused.
 
 - **Kind:** Core
-- **Acceptance test:** None yet
+- **Acceptance test:** [events.feature › Accepted events never change](../../../../tests/acceptance/features/events.feature)
 
 ## Events are kept only for a limited time
 

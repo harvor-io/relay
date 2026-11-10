@@ -32,3 +32,11 @@ Feature: Events
       Given the "billing" source has an active key "ledger"
       When the orders service publishes an "order.created" event signed with "ledger"
       Then the event is refused
+
+  Rule: Accepted events never change
+
+    Example: An accepted event's ID can't be reused
+      Given the orders service has published an "order.created" event
+      When the orders service publishes an "order.updated" event with the same ID
+      Then the event is refused
+      And the accepted event is still an "order.created" event

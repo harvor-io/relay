@@ -32,6 +32,7 @@ so its services can publish events without knowing where they end up.
 
 ## Rules
 
+- [Sources](../domain/rules/sources.md)
 - [Events](../domain/rules/events.md)
 
 ## Concepts

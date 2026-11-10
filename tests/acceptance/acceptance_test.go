@@ -47,5 +47,6 @@ func TestAcceptance(t *testing.T) {
 // scenarioInitializers registers the steps of each feature, by its file's
 // name.
 var scenarioInitializers = map[string]func(*godog.ScenarioContext){
-	"events": initializeEventScenario,
+	"events":  initializeEventScenario,
+	"sources": initializeSourceScenario,
 }
