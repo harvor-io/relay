@@ -1,6 +1,9 @@
 # Relay
 
-[![Stability: Alpha](https://img.shields.io/badge/stability-alpha-f59e0b)](https://docs.harvor.io/reference/stability-labels)
+<a href="https://readme.exalynt.com/how-it-works/stability-levels#stability-alpha"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://design.exalynt.io/stability/alpha-extra-long-dark.svg">
+  <img src="https://design.exalynt.io/stability/alpha-extra-long-light.svg" alt="Stability: Alpha · Developing" height="18">
+</picture></a>
 
 **Open-source event routing for your infrastructure.**
 
@@ -8,12 +11,10 @@ Relay is a lightweight, self-hosted event ingestion and routing service from [Ha
 
 Applications publish events to Relay, and Relay handles getting them where they need to go. Configure your sources, routes, and destinations without coupling producers to the systems consuming their events.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for an overview of how Relay is put together.
+What Relay does today, capability by capability, and what's still missing, is in the [product docs](docs/product/README.md). How it's built is in the [engineering docs](docs/engineering/README.md).
 
 > [!WARNING]
-> **Alpha**
->
-> Relay carries Harvor's [Alpha stability label](https://docs.harvor.io/reference/stability-labels): early and experimental, not yet ready for production use. Not all planned features are implemented yet, and APIs, configuration formats, and behavior may still change as we learn.
+> Relay is in **Alpha**, one of Exalynt's [stability levels](https://readme.exalynt.com/how-it-works/stability-levels). It works, but it is still taking shape. Expect frequent breaking changes, sometimes without notice, and expect bugs. Build on it only to experiment, and expect its interfaces to change.
 >
 > Contributions, feedback, and ideas are welcome.
 
