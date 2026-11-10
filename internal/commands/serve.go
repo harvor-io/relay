@@ -87,12 +87,6 @@ func ServeCommand() *cli.Command {
 				return fmt.Errorf("setup eventbus: %w", err)
 			}
 
-			sourceRepo := sqliterepo.NewSourceRepository(db)
-			envelopeRepo := sqliterepo.NewEnvelopeRepository(db)
-			sourceService := services.NewSourceService(sourceRepo, envelopeRepo, eventBus)
-
-			destinationRepo := sqliterepo.NewDestinationRepository(db)
-
 			secretsDB, err := database.Open(ctx, &config.Config{
 				DatabaseDriver:    cfg.Secrets.Driver,
 				DatabaseURL:       cfg.Secrets.DatabaseURL,
@@ -117,14 +111,12 @@ func ServeCommand() *cli.Command {
 				return fmt.Errorf("invalid SECRETS_ENCRYPTION_KEY: %w", err)
 			}
 
-			sourceKeyService := services.NewSourceKeyService(
-				sqliterepo.NewSourceKeyRepository(db),
-				sourceRepo,
-				secretStore,
-				enc,
-			)
-
-			destinationService := services.NewDestinationService(destinationRepo, secretStore, enc)
+			sourceRepo := sqliterepo.NewSourceRepository(db)
+			sourceKeyRepo := sqliterepo.NewSourceKeyRepository(db)
+			envelopeRepo := sqliterepo.NewEnvelopeRepository(db)
+			sourceService := services.NewSourceService(sourceRepo, envelopeRepo, sourceKeyRepo, secretStore, eventBus)
+			sourceKeyService := services.NewSourceKeyService(sourceKeyRepo, sourceRepo, secretStore, enc)
+			destinationService := services.NewDestinationService(sqliterepo.NewDestinationRepository(db), secretStore, enc)
 
 			sourceEventAuth := middleware.HMACAuth(sourceService, sourceKeyService)
 

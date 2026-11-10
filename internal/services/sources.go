@@ -15,6 +15,7 @@ import (
 	"github.com/harvor-io/relay/internal/bus"
 	"github.com/harvor-io/relay/internal/models"
 	"github.com/harvor-io/relay/internal/repositories"
+	"github.com/harvor-io/relay/pkg/secrets"
 )
 
 // Bounds enforced on caller-supplied source fields. They are generous limits
@@ -161,15 +162,24 @@ type SourceService interface {
 type sourceService struct {
 	sources   repositories.SourceRepository
 	envelopes repositories.EnvelopeRepository
+	keys      repositories.SourceKeyRepository
+	secrets   secrets.Store
 	bus       bus.Bus
 }
 
 var _ SourceService = (*sourceService)(nil)
 
 // NewSourceService returns a SourceService backed by sources and envelopes,
-// publishing created events to eventBus.
-func NewSourceService(sources repositories.SourceRepository, envelopes repositories.EnvelopeRepository, eventBus bus.Bus) SourceService {
-	return &sourceService{sources: sources, envelopes: envelopes, bus: eventBus}
+// publishing created events to eventBus. Deleting a source also deletes its
+// keys from keys and their secrets from secretStore.
+func NewSourceService(
+	sources repositories.SourceRepository,
+	envelopes repositories.EnvelopeRepository,
+	keys repositories.SourceKeyRepository,
+	secretStore secrets.Store,
+	eventBus bus.Bus,
+) SourceService {
+	return &sourceService{sources: sources, envelopes: envelopes, keys: keys, secrets: secretStore, bus: eventBus}
 }
 
 // CreateSourceInput carries the caller-supplied fields for a new source. The
@@ -441,11 +451,24 @@ func (s *sourceService) idTaken(ctx context.Context, id uuid.UUID) (bool, error)
 	}
 }
 
-// Delete removes the source with the given ID, returning ErrSourceNotFound if
-// it does not exist.
+// Delete removes the source with the given ID, then its keys and their
+// secrets, so a source recreated with the same ID starts with none. It returns
+// ErrSourceNotFound if the source does not exist.
 func (s *sourceService) Delete(ctx context.Context, id uuid.UUID) error {
+	keys, err := s.keys.ListBySource(ctx, id)
+	if err != nil {
+		return fmt.Errorf("services: list source keys: %w", err)
+	}
 	if err := s.sources.Delete(ctx, id); err != nil {
 		return mapSourceRepoError("delete source", err)
+	}
+	for i := range keys {
+		if err := s.keys.Delete(ctx, keys[i].ID); err != nil && !errors.Is(err, repositories.ErrNotFound) {
+			return fmt.Errorf("services: delete source key: %w", err)
+		}
+		if err := s.secrets.Delete(ctx, keys[i].SecretID); err != nil && !errors.Is(err, secrets.ErrNotFound) {
+			return fmt.Errorf("services: delete source key secret: %w", err)
+		}
 	}
 	return nil
 }

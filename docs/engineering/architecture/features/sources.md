@@ -21,12 +21,12 @@ Sources, their keys, and the signed events endpoint they publish through.
 - An event type's limit depends on the source's slug: the topic,
   `<slug>.<type>`, is capped at 255 bytes because RabbitMQ silently truncates
   longer routing keys.
-- The schema has no foreign keys, so deleting a source leaves its keys, their
-  secrets, and its envelopes behind. A source recreated with the same explicit
-  ID picks the old keys back up, and they're still active.
+- The schema has no foreign keys, so `sourceService.Delete` deletes the source's
+  keys and their secrets itself, after the source row. Like deleting one key,
+  that's best effort: a failure partway leaves keys or secrets nobody can reach.
 
 ## Known gaps
 
-- **Deleting a source doesn't delete what belongs to it:** its keys, key secrets,
-  and envelopes stay in the databases, unreachable through the API. **Until:**
-  not decided.
+- **Deleting a source leaves its envelopes:** they stay in the database,
+  unreachable through the API. **Until:** event retention is built, which
+  clears them out by age.

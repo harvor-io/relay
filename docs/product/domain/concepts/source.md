@@ -7,15 +7,17 @@ owned by the team that produces the events.
 
 A source has a name, an optional description, and a slug: a short, URL-safe name
 that's unique across Relay and never changes. The slug is the first part of
-every [topic](topic.md) the source publishes to. A source has one or more
-[source keys](source-key.md) its services sign [events](event.md) with.
+every [topic](topic.md) the source publishes to. A source has
+[source keys](source-key.md) its services sign [events](event.md) with: none
+when it's registered, then as many as its owner issues.
 
 ## Lifecycle
 
-Active ⇄ Inactive → Deleted
+Active ⇄ Inactive, and either → Deleted
 
 A source starts active. Its owner can deactivate it to pause its events and
-reactivate it later, or delete it.
+reactivate it later, or delete it whether it's active or not. Deleting it
+deletes its keys too.
 
 ## Not to be confused with
 

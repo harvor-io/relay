@@ -121,8 +121,9 @@ func (w *events) setUp(ctx context.Context) error {
 		PublishFunc: func(context.Context, *models.Envelope) error { return nil },
 	}
 	sourceRepo := sqliterepo.NewSourceRepository(w.db)
-	w.sources = services.NewSourceService(sourceRepo, sqliterepo.NewEnvelopeRepository(w.db), eventBus)
-	w.keys = services.NewSourceKeyService(sqliterepo.NewSourceKeyRepository(w.db), sourceRepo, secretStore, enc)
+	keyRepo := sqliterepo.NewSourceKeyRepository(w.db)
+	w.sources = services.NewSourceService(sourceRepo, sqliterepo.NewEnvelopeRepository(w.db), keyRepo, secretStore, eventBus)
+	w.keys = services.NewSourceKeyService(keyRepo, sourceRepo, secretStore, enc)
 
 	router := chi.NewRouter()
 	handlers.NewSourceHandler(w.sources, middleware.HMACAuth(w.sources, w.keys)).RegisterRoutes(router)
