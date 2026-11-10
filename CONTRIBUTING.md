@@ -42,11 +42,15 @@ the HTTP API.
 | [internal/commands/](internal/commands/) | `serve` and `migrate` commands |
 | [internal/config/](internal/config/) | Runtime configuration, loaded from the environment |
 | [internal/handlers/](internal/handlers/) | HTTP handlers (`chi` router, `chi/render` responses) |
-| [internal/middleware/](internal/middleware/) | HTTP middleware (e.g. UUIDv7 request IDs) |
+| [internal/middleware/](internal/middleware/) | HTTP middleware (e.g. UUIDv7 request IDs, source event signatures) |
+| [internal/services/](internal/services/) | Business logic and rules, with errors the handlers map to status codes |
 | [internal/models/](internal/models/) | Core domain entities (`Source`, `Destination`, `Envelope`) |
+| [internal/bus/](internal/bus/) | The eventbus interface and its RabbitMQ implementation |
+| [internal/logging/](internal/logging/) | The structured logger, built from configuration |
 | [internal/database/](internal/database/) | Connection setup (`sqlite`, `libsql` sub-packages) and the migration runner (`goose`) |
 | [internal/database/migrations/](internal/database/migrations/) | SQL migration files, embedded with `embed.FS`, one sub-directory per engine |
 | [internal/repositories/](internal/repositories/) | Persistence interfaces and their SQLite implementations |
+| [pkg/](pkg/) | Self-contained packages that could become their own modules (secret store, encryptor) |
 | [static/](static/) | OpenAPI spec, embedded into the binary with `embed.FS` |
 | [tests/e2e/](tests/e2e/) | Black-box Playwright tests: one endpoint's happy path each, over HTTP |
 | [tests/acceptance/](tests/acceptance/) | Business rules in Gherkin (`features/`), checked with godog |

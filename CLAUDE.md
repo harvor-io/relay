@@ -1,38 +1,26 @@
 # Relay — working agreement
 
+[CONTRIBUTING.md](CONTRIBUTING.md) covers the project layout, configuration,
+running Relay, the checks CI enforces, and the steps for adding an endpoint.
+The go-http rules in `.claude/rules/` and the global rules cover the rest; this
+file holds only what's specific to Relay or where Relay departs from them.
+
 ## Working style
 
-- **Do not write tests** unless the user explicitly asks for them in the request.
 - **Do not spin up environments** — no running the server, `make run`, Docker,
-  `curl` smoke tests, or seeding databases — unless the user explicitly asks.
-- Building (`go build ./...`), `go vet`, and `gofmt` are fine and expected.
+  `curl` smoke tests, seeding databases, or running the end-to-end tests —
+  unless the user explicitly asks. Write the tests the stability level calls
+  for; just don't run the ones that need the stack.
+- `go build ./...` and `make check` (`go fix`, `go fmt`, `go vet`,
+  golangci-lint, and the Redocly lint) are fine and expected.
 
-## Project layout
+## Stability levels
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full layout. In short:
+Besides each capability doc, every operation in the OpenAPI spec under
+`static/docs/` states its level in `x-stability`. Keep the two in step.
 
-| Path | Purpose |
-|---|---|
-| `cmd/relay/` | CLI entrypoint (`urfave/cli`); `relay serve` starts the API |
-| `internal/commands/` | `serve` and `migrate` subcommands and their wiring |
-| `internal/config/` | Runtime configuration from the environment |
-| `internal/handlers/` | HTTP handlers (`chi` router, `chi/render`); translate service errors to HTTP responses and models to explicit resource structs |
-| `internal/services/` | Use-case layer: validation, coordination, well-defined domain errors; never speaks HTTP |
-| `internal/repositories/` | Persistence interfaces and their SQLite implementations |
-| `internal/models/` | Core domain entities (`Source`, `Destination`, `Envelope`) |
-| `internal/database/` | Connection setup and the `goose` migration runner |
-| `static/docs/` | OpenAPI spec, embedded into the binary |
-| `tests/e2e/` | Playwright end-to-end tests, one endpoint's happy path each |
-| `tests/acceptance/` | Gherkin acceptance tests (`features/`) and their godog step definitions |
-| `docs/product/` | Capabilities (with stability levels and known gaps), flows, domain rules and concepts |
-| `docs/engineering/` | System and feature architecture docs: tradeoffs, gotchas, technical gaps |
+## Where Relay departs from the go-http rules
 
-## Conventions
-
-- Handlers return only the resource(s) as needed for a RESTful API — no
-  metadata (counts, pagination envelopes) in response bodies.
-- Services return specific, comparable errors (`errors.Is`); handlers map those
-  onto status codes.
-- Error response bodies are `{"error": "message"}` (the `Error` schema).
-- Document new endpoints under `static/docs/` and wire them into
-  `static/docs/api.yaml`.
+- **Migrations run on startup:** `relay serve` applies pending migrations
+  before it serves, as well as through `relay migrate`. Platform engineers
+  rely on it, so keep it.
