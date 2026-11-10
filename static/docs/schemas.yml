@@ -604,9 +604,11 @@ components:
             The kind of event being submitted. Combined with the source's
             slug, this forms the topic used to route the resulting envelope
             to destinations ("<source>.<type>"). Must contain only
-            alphanumeric characters, ".", "_", or "-", with no spaces. It is
-            recommended to shape this as "<thing>.<action>", e.g.
-            "order.created" or "user.updated".
+            alphanumeric characters, ".", "_", or "-", with no spaces, and
+            keep the topic at most 255 characters, so the type can be at most
+            254 minus the length of the source's slug. It is recommended to
+            shape this as "<thing>.<action>", e.g. "order.created" or
+            "user.updated".
           example: order.created
         data:
           description: The event payload. Required; may be any JSON value.

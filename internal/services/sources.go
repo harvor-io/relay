@@ -28,10 +28,11 @@ const (
 	// the service tries when auto-deriving a unique slug before giving up.
 	maxSlugCandidates = 50
 
-	// maxSourceEventTypeLength bounds the caller-supplied event type. A
-	// generous limit meant to reject obviously malformed input, not to
-	// encode product policy.
-	maxSourceEventTypeLength = 255
+	// maxTopicLength bounds an event's topic, "<slug>.<type>", in bytes, and
+	// so the event type a source can use. The eventbus routes by topic, and
+	// RabbitMQ silently truncates a routing key past 255 bytes, which would
+	// route the event under a different topic than the one Relay reports.
+	maxTopicLength = 255
 )
 
 // sourceEventTypePattern matches a valid event type: alphanumeric characters
@@ -86,9 +87,9 @@ var (
 	// other than alphanumerics, ".", "_", or "-".
 	ErrSourceEventTypeInvalid = errors.New("type must contain only alphanumeric characters, '.', '_', and '-'")
 
-	// ErrSourceEventTypeTooLong means the supplied type exceeded the length
-	// bound.
-	ErrSourceEventTypeTooLong = fmt.Errorf("type must be at most %d characters", maxSourceEventTypeLength)
+	// ErrSourceEventTypeTooLong means the supplied type would make the
+	// event's topic longer than its bound.
+	ErrSourceEventTypeTooLong = fmt.Errorf("type is too long: the topic, the source's slug, a '.', and the type, must be at most %d characters", maxTopicLength)
 
 	// ErrSourceEventDataRequired means the request body's data field was
 	// absent.
@@ -458,7 +459,7 @@ func (s *sourceService) CreateEvent(ctx context.Context, source *models.Source, 
 	switch {
 	case input.Type == "":
 		return nil, ErrSourceEventTypeRequired
-	case len(input.Type) > maxSourceEventTypeLength:
+	case len(source.Slug)+1+len(input.Type) > maxTopicLength:
 		return nil, ErrSourceEventTypeTooLong
 	case !sourceEventTypePattern.MatchString(input.Type):
 		return nil, ErrSourceEventTypeInvalid

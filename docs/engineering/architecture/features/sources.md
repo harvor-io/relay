@@ -18,6 +18,9 @@ Sources, their keys, and the signed events endpoint they publish through.
 - Signature verification goes through `SourceKeyRepository.ListBySource`, which
   is unpaginated on purpose. Don't swap it for the paginated `List`, or only
   the first page of keys would be checked.
+- An event type's limit depends on the source's slug: the topic,
+  `<slug>.<type>`, is capped at 255 bytes because RabbitMQ silently truncates
+  longer routing keys.
 - The schema has no foreign keys, so deleting a source leaves its keys, their
   secrets, and its envelopes behind. A source recreated with the same explicit
   ID picks the old keys back up, and they're still active.
