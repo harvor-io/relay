@@ -243,7 +243,7 @@ func (h *SourceHandler) DeactivateSource(w http.ResponseWriter, r *http.Request)
 func (h *SourceHandler) CreateSourceEvent(w http.ResponseWriter, r *http.Request) {
 	source, ok := middleware.SourceFromContext(r.Context())
 	if !ok {
-		renderError(w, r, http.StatusInternalServerError, "internal server error")
+		renderInternalError(w, r, errors.New("handlers: no source in the request context"))
 		return
 	}
 
@@ -291,6 +291,6 @@ func renderSourceError(w http.ResponseWriter, r *http.Request, err error) {
 		errors.Is(err, services.ErrSourceEventIDInvalid):
 		renderError(w, r, http.StatusUnprocessableEntity, err.Error())
 	default:
-		renderError(w, r, http.StatusInternalServerError, "internal server error")
+		renderInternalError(w, r, err)
 	}
 }

@@ -226,6 +226,6 @@ func renderDestinationError(w http.ResponseWriter, r *http.Request, err error) {
 		errors.Is(err, services.ErrDestinationIDInvalid):
 		renderError(w, r, http.StatusUnprocessableEntity, err.Error())
 	default:
-		renderError(w, r, http.StatusInternalServerError, "internal server error")
+		renderInternalError(w, r, err)
 	}
 }

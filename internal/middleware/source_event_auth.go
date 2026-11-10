@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -51,6 +52,7 @@ func HMACAuth(sources services.SourceService, keys services.SourceKeyService) fu
 					writeHMACAuthError(w, http.StatusNotFound, err.Error())
 					return
 				}
+				slog.ErrorContext(r.Context(), "look up source for signed request", "error", err)
 				writeHMACAuthError(w, http.StatusInternalServerError, "internal server error")
 				return
 			}
@@ -71,6 +73,7 @@ func HMACAuth(sources services.SourceService, keys services.SourceKeyService) fu
 
 			ok, err := keys.VerifySignature(r.Context(), source.ID, body, signature)
 			if err != nil {
+				slog.ErrorContext(r.Context(), "verify source event signature", "source_id", source.ID, "error", err)
 				writeHMACAuthError(w, http.StatusInternalServerError, "internal server error")
 				return
 			}

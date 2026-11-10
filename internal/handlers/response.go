@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -19,6 +20,13 @@ type errorResponse struct {
 func renderError(w http.ResponseWriter, r *http.Request, status int, message string) {
 	render.Status(r, status)
 	render.JSON(w, r, errorResponse{Error: message})
+}
+
+// renderInternalError logs err, the real cause, and writes a 500 with a
+// generic message, so no internals reach the client.
+func renderInternalError(w http.ResponseWriter, r *http.Request, err error) {
+	slog.ErrorContext(r.Context(), "request failed", "method", r.Method, "path", r.URL.Path, "error", err)
+	renderError(w, r, http.StatusInternalServerError, "internal server error")
 }
 
 // urlUUID parses the {id} path parameter as a UUID. On failure it writes a 400
