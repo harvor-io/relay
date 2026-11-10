@@ -16,8 +16,9 @@ reaches whoever needs it without the producer knowing who that is.
 
 ## Known gaps
 
-- Events aren't delivered anywhere yet. Relay records and accepts them, but no
-  destination receives them until subscriptions and delivery are built.
+- Events aren't delivered anywhere yet. Relay records each accepted event and
+  routes it to every active destination subscribed to its topic, where it
+  waits, but delivering it to the destination itself isn't built.
 - Events are kept indefinitely. Clearing out events older than a maximum age
   isn't built yet.
 - Accepted events can't be looked up yet: there's no way to see what a source
