@@ -3,9 +3,10 @@
 The message broker Relay publishes accepted envelopes to, so that routing them
 to destinations is done by the broker's own primitives rather than by Relay.
 
-**Code:** `internal/bus` (the `Bus` interface), `internal/bus/rabbitmq`, and
-`sourceService.CreateEvent` in `internal/services/sources.go`. Wired up in
-`internal/commands/serve.go`.
+**Code:** `internal/bus` (the `Bus` interface), `internal/bus/rabbitmq`,
+`sourceService.CreateEvent` in `internal/services/sources.go`,
+`destinationService` in `destinations.go`, and `subscriptionService` in
+`subscriptions.go`. Wired up in `internal/commands/serve.go`.
 
 ## How it works
 
@@ -19,12 +20,26 @@ envelope's [topic](../../../product/domain/concepts/topic.md),
 `<source slug>.<event type>`, and its body is `envelopeMessage`, an explicit
 projection of `models.Envelope`.
 
-The target shape: each destination's
-[subscriptions](../../../product/domain/concepts/subscription.md) become queue
-bindings on `relay_ingest`, and a delivery worker per destination consumes its
-queue and delivers by the destination's type. The broker decides which bound
-queues get a message. Relay never matches sources to destinations itself.
-None of the consuming side exists yet.
+Each destination has a durable queue, `relay.destination.<id>`, declared when
+the destination is created. Each topic in an active destination's
+[subscriptions](../../../product/domain/concepts/subscription.md) is a binding
+of that queue on `relay_ingest`. The broker decides which queues get a message;
+Relay never matches sources to destinations itself. The services keep the
+bindings in step with what's stored:
+
+- Subscribing, changing a subscription's topics, and unsubscribing bind and
+  unbind them, but only while the destination is active.
+- Deactivating a destination unbinds all of its subscriptions, and activating
+  it binds them again from the database.
+- Deleting a destination deletes its queue.
+
+`Bus` speaks in destinations and subscriptions, and the driver maps them onto
+queues and bindings. Every method is idempotent, which the interface's doc
+comment makes the contract for every driver. The services write the database
+first and call the bus after, so a retried or repeated call is always safe.
+
+The target shape still to come: a delivery worker per destination consumes its
+queue and delivers by the destination's type. Nothing consumes the queues yet.
 
 ## Tradeoffs
 
@@ -45,9 +60,31 @@ None of the consuming side exists yet.
   envelope is already in the database and the request returns 500 (the TODO in
   `CreateEvent`). Fixing this probably means an outbox, which would also change
   how ingestion latency behaves.
-- Messages are published with `mandatory` false, so while no queue is bound to
-  `relay_ingest`, RabbitMQ silently drops every message. Today that's all of
-  them: an accepted event exists only in the envelope store.
+- Messages are published with `mandatory` false, so RabbitMQ silently drops an
+  event no queue's binding matches. That's how an inactive destination misses
+  events, as the
+  [routing rules](../../../product/domain/rules/routing.md#an-inactive-destination-misses-events)
+  require.
+- A subscription's trailing `*` binds as `#`, which matches zero or more parts,
+  where the rule says one or more. So `orders.order.*` also matches an event
+  whose topic is exactly `orders.order`. Only an event type equal to the
+  pattern's prefix can tell the difference.
+- The database write and the bus call aren't atomic. If the bus call fails,
+  the request returns 500 with the database already changed, and the bindings
+  no longer match what's stored. Deactivating and then activating the
+  destination rebinds it from the database, which repairs it. It can't remove
+  a binding the database no longer knows about, though: deleting the
+  destination does that, along with its queue.
+- `destinationService.Delete` deletes the destination's row and subscriptions
+  before its queue. If deleting the queue fails, the queue and any events in
+  it are left on the broker, and Relay can't reach them anymore: delete
+  `relay.destination.<id>` on the broker by hand.
+- A destination can exist without a queue: one created before queues existed,
+  or one whose queue declaration failed after its row was written. It gets one
+  on its first subscription, because `Subscribe` declares the queue before
+  binding.
+- A source's deletion leaves its subscriptions' bindings in place, by the
+  [subscription rules](../../../product/domain/rules/subscriptions.md#subscriptions-outlive-their-source).
 - The AMQP connection is opened once at startup and never re-established. If it
   drops, every publish fails until the process restarts. `/readyz` reports the
   `eventbus` check down, so the process leaves rotation, but `/livez` stays up,
@@ -63,16 +100,26 @@ None of the consuming side exists yet.
 
 ## Known gaps
 
+- **Queues have no cap, and nothing consumes them:** every event an active
+  destination subscribes to piles up in its queue, using broker storage, until
+  someone deletes the destination or purges the queue by hand. A cap added
+  later means deleting each queue and declaring it again, because RabbitMQ
+  refuses to redeclare a queue with different arguments. **Until:** delivery
+  is built.
+
 - **RabbitMQ is the only driver:** `EVENTBUS_DRIVER` accepts only `rabbitmq`, and
   serve refuses anything else. **Until:** not decided.
 
 ## Changing it
 
-**Changing the `Bus` interface:** run `go generate ./internal/bus/` to
-regenerate `BusMock`, or the acceptance tests stop compiling.
+**Changing the `Bus` interface:** keep every method idempotent, then run
+`go generate ./internal/bus/` to regenerate `BusMock`, or the acceptance tests
+stop compiling.
 
 **Adding an eventbus driver:** implement `bus.Bus` in a new package under
-`internal/bus/`, with an idempotent `Setup`, and select it by `EVENTBUS_DRIVER`
+`internal/bus/`, with every method idempotent, including `Setup`. Map
+destinations and subscriptions onto the broker's own primitives, translating a
+trailing `*` into its wildcard, and select it by `EVENTBUS_DRIVER`
 in `serve.go` and `internal/config`. Keep the routing key as the envelope's topic
 and the body as the same wire format, or consumers break when the driver
 changes.

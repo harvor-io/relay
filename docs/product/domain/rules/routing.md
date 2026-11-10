@@ -24,3 +24,12 @@ destination, is a separate choice from the broker Relay uses inside.
 - **Kind:** Core
 - **Why:** so Relay can change its broker without anyone who uses it noticing.
 - **Acceptance test:** None yet
+
+## An inactive destination misses events
+
+While a destination is inactive, events matching its subscriptions aren't kept
+for it. Once it's activated again, it gets events published from then on, not
+the ones it missed.
+
+- **Kind:** Core
+- **Acceptance test:** None yet

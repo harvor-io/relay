@@ -7,7 +7,7 @@ type, as `<source>.<event type>`, such as `orders.order.created`.
 ## Details
 
 Every event has exactly one topic. A [subscription](subscription.md) names the
-topics a destination wants.
+topics a destination wants, either exactly or by a wildcard pattern.
 
 ## Not to be confused with
 

@@ -116,7 +116,10 @@ func ServeCommand() *cli.Command {
 			envelopeRepo := sqliterepo.NewEnvelopeRepository(db)
 			sourceService := services.NewSourceService(sourceRepo, envelopeRepo, sourceKeyRepo, secretStore, eventBus)
 			sourceKeyService := services.NewSourceKeyService(sourceKeyRepo, sourceRepo, secretStore, enc)
-			destinationService := services.NewDestinationService(sqliterepo.NewDestinationRepository(db), secretStore, enc)
+			destinationRepo := sqliterepo.NewDestinationRepository(db)
+			subscriptionRepo := sqliterepo.NewSubscriptionRepository(db)
+			destinationService := services.NewDestinationService(destinationRepo, subscriptionRepo, secretStore, enc, eventBus)
+			subscriptionService := services.NewSubscriptionService(subscriptionRepo, destinationRepo, sourceRepo, eventBus)
 
 			sourceEventAuth := middleware.HMACAuth(sourceService, sourceKeyService)
 
@@ -153,6 +156,7 @@ func ServeCommand() *cli.Command {
 				handlers.NewSourceHandler(sourceService, sourceEventAuth).RegisterRoutes(api)
 				handlers.NewSourceKeyHandler(sourceKeyService).RegisterRoutes(api)
 				handlers.NewDestinationHandler(destinationService).RegisterRoutes(api)
+				handlers.NewSubscriptionHandler(subscriptionService).RegisterRoutes(api)
 			})
 
 			docsHandler, err := handlers.NewDocsHandler()

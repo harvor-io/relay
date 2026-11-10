@@ -10,6 +10,7 @@ import (
 	"github.com/exalynt/turn/paginator/cursor"
 	"github.com/gofrs/uuid/v5"
 
+	"github.com/harvor-io/relay/internal/bus"
 	"github.com/harvor-io/relay/internal/models"
 	"github.com/harvor-io/relay/internal/repositories"
 	"github.com/harvor-io/relay/pkg/encryptor"
@@ -124,42 +125,52 @@ type DestinationService interface {
 	// input is invalid.
 	Update(ctx context.Context, id uuid.UUID, input UpdateDestinationInput) (*models.Destination, error)
 
-	// Activate marks the destination as active, or returns
-	// ErrDestinationNotFound.
+	// Activate marks the destination as active and routes its
+	// subscriptions on the eventbus, or returns ErrDestinationNotFound.
 	Activate(ctx context.Context, id uuid.UUID) (*models.Destination, error)
 
-	// Deactivate marks the destination as inactive, or returns
-	// ErrDestinationNotFound.
+	// Deactivate marks the destination as inactive and stops routing its
+	// subscriptions on the eventbus, so events published meanwhile never
+	// reach it. It returns ErrDestinationNotFound.
 	Deactivate(ctx context.Context, id uuid.UUID) (*models.Destination, error)
 
-	// Delete removes the destination with the given ID, or returns
-	// ErrDestinationNotFound. If the destination's config referenced an
+	// Delete removes the destination with the given ID, its
+	// subscriptions, and everything routed to it on the eventbus, or
+	// returns ErrDestinationNotFound. If the destination's config referenced an
 	// hmac secret, the secret is removed on a best-effort basis after the
 	// destination is gone.
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 // destinationService is the default DestinationService, backed by a
-// repositories.DestinationRepository for destination records and a
+// repositories.DestinationRepository for destination records, a
+// repositories.SubscriptionRepository for their subscriptions, a
 // secrets.Store for secret values referenced from a destination's config
-// (for example, an hmac auth config's signing secret).
+// (for example, an hmac auth config's signing secret), and a bus.Bus that
+// events are routed to the destination through.
 type destinationService struct {
-	destinations repositories.DestinationRepository
-	secrets      secrets.Store
-	encryptor    encryptor.Encryptor
+	destinations  repositories.DestinationRepository
+	subscriptions repositories.SubscriptionRepository
+	secrets       secrets.Store
+	encryptor     encryptor.Encryptor
+	bus           bus.Bus
 }
 
 var _ DestinationService = (*destinationService)(nil)
 
 // NewDestinationService returns a DestinationService backed by destinations
-// for destination records, secretStore for secret values referenced from a
-// destination's config, and enc to encrypt and decrypt them.
+// for destination records, subscriptions for the destination's
+// subscriptions, secretStore for secret values referenced from a
+// destination's config, enc to encrypt and decrypt them, and eventBus to
+// route events to the destination.
 func NewDestinationService(
 	destinations repositories.DestinationRepository,
+	subscriptions repositories.SubscriptionRepository,
 	secretStore secrets.Store,
 	enc encryptor.Encryptor,
+	eventBus bus.Bus,
 ) DestinationService {
-	return &destinationService{destinations: destinations, secrets: secretStore, encryptor: enc}
+	return &destinationService{destinations: destinations, subscriptions: subscriptions, secrets: secretStore, encryptor: enc, bus: eventBus}
 }
 
 // CreateDestinationInput carries the caller-supplied fields for a new
@@ -259,6 +270,9 @@ func (s *destinationService) Create(ctx context.Context, input CreateDestination
 		}
 		return nil, fmt.Errorf("services: create destination: %w", err)
 	}
+	if err := s.bus.AddDestination(ctx, destination); err != nil {
+		return nil, fmt.Errorf("services: add destination to eventbus: %w", err)
+	}
 	return destination, nil
 }
 
@@ -319,6 +333,25 @@ func (s *destinationService) setActive(ctx context.Context, id uuid.UUID, active
 	if err := s.destinations.Update(ctx, destination); err != nil {
 		return nil, mapDestinationRepoError("update destination", err)
 	}
+
+	// An inactive destination has nothing routed to it: deactivating stops
+	// routing its subscriptions, and activating restores them from what's
+	// stored. Both are idempotent on the bus, so repeating either repairs
+	// routing that has drifted.
+	subscriptions, err := s.subscriptions.ListByDestination(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("services: list destination subscriptions: %w", err)
+	}
+	for i := range subscriptions {
+		if active {
+			err = s.bus.Subscribe(ctx, &subscriptions[i])
+		} else {
+			err = s.bus.Unsubscribe(ctx, &subscriptions[i])
+		}
+		if err != nil {
+			return nil, fmt.Errorf("services: update destination routing on eventbus: %w", err)
+		}
+	}
 	return destination, nil
 }
 
@@ -335,6 +368,12 @@ func (s *destinationService) Delete(ctx context.Context, id uuid.UUID) error {
 
 	if err := s.destinations.Delete(ctx, id); err != nil {
 		return mapDestinationRepoError("delete destination", err)
+	}
+	if err := s.subscriptions.DeleteByDestination(ctx, id); err != nil {
+		return fmt.Errorf("services: delete destination subscriptions: %w", err)
+	}
+	if err := s.bus.RemoveDestination(ctx, destination); err != nil {
+		return fmt.Errorf("services: remove destination from eventbus: %w", err)
 	}
 
 	secretID, ok := hmacSecretID(destination.Type, destination.Config)

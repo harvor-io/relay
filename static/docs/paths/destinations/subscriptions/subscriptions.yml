@@ -1,0 +1,108 @@
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: The destination's UUID.
+    schema:
+      type: string
+      format: uuid
+
+get:
+  operationId: listSubscriptions
+  x-stability: prototype
+  summary: List a destination's subscriptions
+  description: >-
+    Returns a page of the destination's subscriptions, one per source,
+    ordered by the source's slug. Follow the `Link` header's `next` link for
+    the rest.
+  tags:
+    - Subscriptions
+  parameters:
+    - $ref: "../../../schemas.yml#/components/parameters/After"
+    - $ref: "../../../schemas.yml#/components/parameters/Before"
+    - $ref: "../../../schemas.yml#/components/parameters/Size"
+  responses:
+    "200":
+      description: The list of subscriptions.
+      headers:
+        Link:
+          $ref: "../../../schemas.yml#/components/headers/Link"
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "../../../schemas.yml#/components/schemas/Subscription"
+    "400":
+      description: >-
+        The destination ID is not a valid UUID, or the page selection is
+        invalid, such as a size out of range or a cursor from another listing.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No destination exists with that ID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Error"
+
+post:
+  operationId: createSubscription
+  x-stability: prototype
+  summary: Subscribe a destination to a source's topics
+  description: >-
+    Subscribes the destination to one or more of a source's topics. Each
+    topic is either exact, such as `orders.order.created`, or a pattern
+    ending in `*`, such as `orders.order.*` for every `order` event or
+    `orders.*` for everything from the source. A `*` may only be the last
+    part, and matches one or more parts. Every topic must start with the
+    source's slug, and any well-formed topic is accepted, including ones the
+    source hasn't published yet. A destination has one subscription per
+    source: to want more of a source's topics, add them to its subscription.
+    Nothing is delivered to destinations yet. When no ID is supplied, a
+    UUIDv7 is generated.
+  tags:
+    - Subscriptions
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../../../schemas.yml#/components/schemas/NewSubscription"
+  responses:
+    "201":
+      description: The subscription was created.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Subscription"
+    "400":
+      description: The destination ID is not a valid UUID, or the request body is not valid JSON.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No destination exists with that ID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Error"
+    "409":
+      description: >-
+        The destination is already subscribed to that source, or the supplied
+        subscription ID is already in use.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Error"
+    "422":
+      description: >-
+        The request body failed validation: the source doesn't exist, no
+        topics were named, or a topic isn't one of the source's.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Error"

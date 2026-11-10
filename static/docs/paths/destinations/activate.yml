@@ -12,7 +12,8 @@ post:
   x-stability: prototype
   summary: Activate a destination
   description: >-
-    Marks the destination as active. Once delivery is built, an active
+    Marks the destination as active, so events matching its subscriptions
+    are routed to it again from now on. Once delivery is built, an active
     destination receives the events it subscribes to; nothing is delivered to
     any destination yet.
   tags:

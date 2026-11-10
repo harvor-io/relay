@@ -21,8 +21,8 @@ how events should be delivered to it, without the producers knowing it exists.
 
 ## Known gaps
 
-- Destinations don't receive events yet. Subscribing a destination to a source's
-  topics, and delivering to it, aren't built.
+- Destinations don't receive events yet: they can be subscribed to sources'
+  topics, but delivering to them isn't built.
 - Webhooks are the only kind of destination. Amazon SQS, RabbitMQ, and Kafka
   destinations are planned once webhook delivery is solid.
 - Signed webhooks use a shared secret only. Bearer tokens and API keys aren't
@@ -36,6 +36,7 @@ how events should be delivered to it, without the producers knowing it exists.
 ## Rules
 
 - [Routing](../domain/rules/routing.md)
+- [Subscriptions](../domain/rules/subscriptions.md)
 
 ## Concepts
 

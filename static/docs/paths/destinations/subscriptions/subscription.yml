@@ -1,0 +1,113 @@
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: The destination's UUID.
+    schema:
+      type: string
+      format: uuid
+  - name: subscriptionID
+    in: path
+    required: true
+    description: The subscription's UUID.
+    schema:
+      type: string
+      format: uuid
+
+get:
+  operationId: getSubscription
+  x-stability: prototype
+  summary: Get a subscription
+  description: Returns a single subscription belonging to the destination.
+  tags:
+    - Subscriptions
+  responses:
+    "200":
+      description: The subscription.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Subscription"
+    "400":
+      description: The destination or subscription ID is not a valid UUID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No such subscription exists for that destination.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Error"
+
+patch:
+  operationId: updateSubscription
+  x-stability: prototype
+  summary: Add or remove a subscription's topics
+  description: >-
+    Adds topics to the subscription and removes others, keeping the rest.
+    Added topics follow the same rules as when subscribing. Removing a topic
+    the subscription doesn't have is ignored. A subscription always keeps at
+    least one topic: to stop wanting all of a source's events, delete the
+    subscription instead.
+  tags:
+    - Subscriptions
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../../../schemas.yml#/components/schemas/UpdateSubscription"
+  responses:
+    "200":
+      description: The updated subscription.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Subscription"
+    "400":
+      description: >-
+        The destination or subscription ID is not a valid UUID, or the
+        request body is not valid JSON.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No such subscription exists for that destination.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Error"
+    "422":
+      description: >-
+        An added topic isn't one of the source's, or the change would leave
+        the subscription with no topics.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Error"
+
+delete:
+  operationId: deleteSubscription
+  x-stability: prototype
+  summary: Unsubscribe a destination from a source
+  description: Removes the subscription, so the destination no longer wants any of the source's events.
+  tags:
+    - Subscriptions
+  responses:
+    "204":
+      description: The subscription was deleted.
+    "400":
+      description: The destination or subscription ID is not a valid UUID.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Error"
+    "404":
+      description: No such subscription exists for that destination.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Error"
