@@ -15,18 +15,22 @@ Sources, their keys, and the signed events endpoint they publish through.
   422 only for a good one.
 - A key that belongs to another source answers 404, the same as one that doesn't
   exist, so callers can't probe for key IDs.
+- The schema has no foreign keys, so `sourceService.Delete` deletes the source's
+  keys and their secrets itself, after the source row. Like deleting one key,
+  that's best effort: a failure partway leaves keys or secrets nobody can reach.
 - Signature verification goes through `SourceKeyRepository.ListBySource`, which
   is unpaginated on purpose. Don't swap it for the paginated `List`, or only
   the first page of keys would be checked.
 - An event type's limit depends on the source's slug: the topic,
   `<slug>.<type>`, is capped at 255 bytes because RabbitMQ silently truncates
   longer routing keys.
-- The schema has no foreign keys, so `sourceService.Delete` deletes the source's
-  keys and their secrets itself, after the source row. Like deleting one key,
-  that's best effort: a failure partway leaves keys or secrets nobody can reach.
 
 ## Known gaps
 
 - **Deleting a source leaves its envelopes:** they stay in the database,
   unreachable through the API. **Until:** event retention is built, which
   clears them out by age.
+- **Signed requests can be replayed:** the signature covers only the body, with
+  no timestamp, so a captured request can be sent again. An event ID already
+  used is refused, but one without an ID is accepted again. **Until:**
+  Publishing events reaches Beta.

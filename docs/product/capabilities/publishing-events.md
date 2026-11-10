@@ -20,6 +20,8 @@ reaches whoever needs it without the producer knowing who that is.
   destination receives them until subscriptions and delivery are built.
 - Events are kept indefinitely. Clearing out events older than a maximum age
   isn't built yet.
+- Accepted events can't be looked up yet: there's no way to see what a source
+  has published.
 - HTTP is the only way to publish. gRPC is planned.
 - If Relay fails partway through accepting an event, the producer gets an
   error, but the event may already be recorded. Retrying with the same event ID
