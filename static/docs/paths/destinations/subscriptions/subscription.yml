@@ -6,19 +6,21 @@ parameters:
     schema:
       type: string
       format: uuid
-  - name: subscriptionID
+  - name: topic
     in: path
     required: true
-    description: The subscription's UUID.
+    description: >-
+      The topic or pattern, such as `orders.order.created`, `orders.order.*`,
+      `orders.*`, or `*`. A `*` may be sent as is or percent-encoded as `%2A`.
     schema:
       type: string
-      format: uuid
+    example: orders.order.*
 
 get:
   operationId: getSubscription
   x-stability: prototype
   summary: Get a subscription
-  description: Returns a single subscription belonging to the destination.
+  description: Returns the destination's subscription to the topic.
   tags:
     - Subscriptions
   responses:
@@ -29,61 +31,60 @@ get:
           schema:
             $ref: "../../../schemas.yml#/components/schemas/Subscription"
     "400":
-      description: The destination or subscription ID is not a valid UUID.
+      description: The destination ID is not a valid UUID.
       content:
         application/json:
           schema:
             $ref: "../../../schemas.yml#/components/schemas/Error"
     "404":
-      description: No such subscription exists for that destination.
+      description: The destination isn't subscribed to the topic.
       content:
         application/json:
           schema:
             $ref: "../../../schemas.yml#/components/schemas/Error"
 
-patch:
-  operationId: updateSubscription
+put:
+  operationId: putSubscription
   x-stability: prototype
-  summary: Add or remove a subscription's topics
+  summary: Subscribe a destination to a topic
   description: >-
-    Adds topics to the subscription and removes others, keeping the rest.
-    Added topics follow the same rules as when subscribing. Removing a topic
-    the subscription doesn't have is ignored. A subscription always keeps at
-    least one topic: to stop wanting all of a source's events, delete the
-    subscription instead.
+    Subscribes the destination to a topic or pattern. A topic is a source's
+    slug, a `.`, and an event type, such as `orders.order.created`. A pattern
+    ends in `*`, which matches one or more further parts: `orders.order.*` is
+    every `order` event from `orders`, `orders.*` is everything from
+    `orders`, and `*` alone is every event from every source. A `*` may only
+    be the last part. The source needn't be registered, and the event type
+    needn't have been published yet. Subscribing again changes nothing, so
+    it's safe to retry. Nothing is delivered to destinations yet.
   tags:
     - Subscriptions
-  requestBody:
-    required: true
-    content:
-      application/json:
-        schema:
-          $ref: "../../../schemas.yml#/components/schemas/UpdateSubscription"
   responses:
     "200":
-      description: The updated subscription.
+      description: The destination was already subscribed to the topic.
+      content:
+        application/json:
+          schema:
+            $ref: "../../../schemas.yml#/components/schemas/Subscription"
+    "201":
+      description: The destination is now subscribed to the topic.
       content:
         application/json:
           schema:
             $ref: "../../../schemas.yml#/components/schemas/Subscription"
     "400":
-      description: >-
-        The destination or subscription ID is not a valid UUID, or the
-        request body is not valid JSON.
+      description: The destination ID is not a valid UUID.
       content:
         application/json:
           schema:
             $ref: "../../../schemas.yml#/components/schemas/Error"
     "404":
-      description: No such subscription exists for that destination.
+      description: No destination exists with that ID.
       content:
         application/json:
           schema:
             $ref: "../../../schemas.yml#/components/schemas/Error"
     "422":
-      description: >-
-        An added topic isn't one of the source's, or the change would leave
-        the subscription with no topics.
+      description: The topic isn't a valid topic or pattern.
       content:
         application/json:
           schema:
@@ -92,21 +93,25 @@ patch:
 delete:
   operationId: deleteSubscription
   x-stability: prototype
-  summary: Unsubscribe a destination from a source
-  description: Removes the subscription, so the destination no longer wants any of the source's events.
+  summary: Unsubscribe a destination from a topic
+  description: >-
+    Removes the subscription, so the destination no longer wants the topic's
+    events. Its other subscriptions are untouched, even ones whose patterns
+    also match this topic. Answers 204 whether or not the destination was
+    subscribed, so it's safe to retry.
   tags:
     - Subscriptions
   responses:
     "204":
-      description: The subscription was deleted.
+      description: The destination isn't subscribed to the topic.
     "400":
-      description: The destination or subscription ID is not a valid UUID.
+      description: The destination ID is not a valid UUID.
       content:
         application/json:
           schema:
             $ref: "../../../schemas.yml#/components/schemas/Error"
     "404":
-      description: No such subscription exists for that destination.
+      description: No destination exists with that ID.
       content:
         application/json:
           schema:

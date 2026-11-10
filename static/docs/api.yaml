@@ -23,8 +23,9 @@ info:
     bugs, even in the main workflow. Build on them to experiment, and keep a
     fallback for anything you rely on. The Destinations and Subscriptions
     endpoints are **Prototype**: they register destinations and subscribe
-    them to sources' topics, but nothing is delivered to them yet. Endpoints move up a level as they settle, and only GA endpoints
-    promise no breaking changes within `/v1`.
+    them to topics, but nothing is delivered to them yet. Endpoints move up a
+    level as they settle, and only GA endpoints promise no breaking changes
+    within `/v1`.
   version: 0.1.0
   license:
     name: Apache 2.0
@@ -42,7 +43,7 @@ tags:
   - name: Destinations
     description: Targets that relay forwards ingested data to.
   - name: Subscriptions
-    description: The topics of a source's events that a destination wants.
+    description: The topics and patterns of events that a destination wants.
 paths:
   /livez:
     $ref: "./paths/health/livez.yml"
@@ -78,5 +79,5 @@ paths:
     $ref: "./paths/destinations/deactivate.yml"
   /destinations/{id}/subscriptions:
     $ref: "./paths/destinations/subscriptions/subscriptions.yml"
-  /destinations/{id}/subscriptions/{subscriptionID}:
+  /destinations/{id}/subscriptions/{topic}:
     $ref: "./paths/destinations/subscriptions/subscription.yml"

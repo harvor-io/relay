@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -13,7 +14,9 @@ import (
 	"github.com/harvor-io/relay/internal/services"
 )
 
-// SubscriptionHandler serves the /destinations/{id}/subscriptions resource.
+// SubscriptionHandler serves subscriptions, the links between a destination
+// and the topics it wants: all of them at /destinations/{id}/subscriptions,
+// and each at /destinations/{id}/subscriptions/{topic}.
 type SubscriptionHandler struct {
 	subscriptions services.SubscriptionService
 }
@@ -29,10 +32,10 @@ func NewSubscriptionHandler(subscriptions services.SubscriptionService) *Subscri
 func (h *SubscriptionHandler) RegisterRoutes(r chi.Router) {
 	r.Route("/destinations/{id}/subscriptions", func(r chi.Router) {
 		r.Get("/", h.ListSubscriptions)
-		r.Post("/", h.CreateSubscription)
-		r.Route("/{subscriptionID}", func(r chi.Router) {
+		r.Put("/", h.ReplaceSubscriptions)
+		r.Route("/{topic}", func(r chi.Router) {
 			r.Get("/", h.GetSubscription)
-			r.Patch("/", h.UpdateSubscription)
+			r.Put("/", h.PutSubscription)
 			r.Delete("/", h.DeleteSubscription)
 		})
 	})
@@ -41,26 +44,16 @@ func (h *SubscriptionHandler) RegisterRoutes(r chi.Router) {
 // subscriptionResource is the JSON representation of a subscription. It is
 // an explicit projection of models.Subscription.
 type subscriptionResource struct {
-	ID            string    `json:"id"`
 	DestinationID string    `json:"destination_id"`
-	SourceID      string    `json:"source_id"`
-	Topics        []string  `json:"topics"`
+	Topic         string    `json:"topic"`
 	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 func newSubscriptionResource(s *models.Subscription) subscriptionResource {
-	topics := make([]string, 0, len(s.Topics))
-	for _, topic := range s.Topics {
-		topics = append(topics, topic.String())
-	}
 	return subscriptionResource{
-		ID:            s.ID.String(),
 		DestinationID: s.DestinationID.String(),
-		SourceID:      s.SourceID.String(),
-		Topics:        topics,
+		Topic:         s.Topic.String(),
 		CreatedAt:     s.CreatedAt,
-		UpdatedAt:     s.UpdatedAt,
 	}
 }
 
@@ -72,19 +65,21 @@ func newSubscriptionResourceList(subscriptions []models.Subscription) []subscrip
 	return resources
 }
 
-// createSubscriptionRequest is the accepted body for
-// POST /destinations/{id}/subscriptions.
-type createSubscriptionRequest struct {
-	ID       string   `json:"id"`
-	SourceID string   `json:"source_id"`
-	Topics   []string `json:"topics"`
+// replaceSubscriptionsRequest is the accepted body for
+// PUT /destinations/{id}/subscriptions.
+type replaceSubscriptionsRequest struct {
+	Topics []string `json:"topics"`
 }
 
-// updateSubscriptionRequest is the accepted body for
-// PATCH /destinations/{id}/subscriptions/{subscriptionID}.
-type updateSubscriptionRequest struct {
-	Add    []string `json:"add"`
-	Remove []string `json:"remove"`
+// urlTopic returns the {topic} path parameter, decoded, since a client may
+// percent-encode a pattern's "*".
+func urlTopic(w http.ResponseWriter, r *http.Request) (string, bool) {
+	topic, err := url.PathUnescape(chi.URLParam(r, "topic"))
+	if err != nil {
+		renderError(w, r, http.StatusBadRequest, "topic is not a valid path segment")
+		return "", false
+	}
+	return topic, true
 }
 
 // ListSubscriptions returns a page of a destination's subscriptions as a
@@ -107,45 +102,43 @@ func (h *SubscriptionHandler) ListSubscriptions(w http.ResponseWriter, r *http.R
 	render.JSON(w, r, newSubscriptionResourceList(page.Items))
 }
 
-// CreateSubscription subscribes a destination to a source's topics and
-// returns the subscription with a 201.
-func (h *SubscriptionHandler) CreateSubscription(w http.ResponseWriter, r *http.Request) {
+// ReplaceSubscriptions makes a destination's subscriptions exactly the
+// topics in the body and returns 204. Sending the same body again changes
+// nothing.
+func (h *SubscriptionHandler) ReplaceSubscriptions(w http.ResponseWriter, r *http.Request) {
 	destinationID, ok := urlUUID(w, r)
 	if !ok {
 		return
 	}
 
-	var body createSubscriptionRequest
+	var body replaceSubscriptionsRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		renderError(w, r, http.StatusBadRequest, "request body is not valid JSON")
 		return
 	}
-
-	subscription, err := h.subscriptions.Subscribe(r.Context(), destinationID, services.SubscribeInput{
-		ID:       body.ID,
-		SourceID: body.SourceID,
-		Topics:   body.Topics,
-	})
-	if err != nil {
-		renderSubscriptionError(w, r, err)
+	if body.Topics == nil {
+		renderError(w, r, http.StatusUnprocessableEntity, "topics is required; send an empty list to unsubscribe from every topic")
 		return
 	}
 
-	render.Status(r, http.StatusCreated)
-	render.JSON(w, r, newSubscriptionResource(subscription))
+	if err := h.subscriptions.Replace(r.Context(), destinationID, body.Topics); err != nil {
+		renderSubscriptionError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
-// GetSubscription returns a single subscription by ID.
+// GetSubscription returns a destination's subscription to a topic.
 func (h *SubscriptionHandler) GetSubscription(w http.ResponseWriter, r *http.Request) {
 	destinationID, ok := urlUUID(w, r)
 	if !ok {
 		return
 	}
-	subscriptionID, ok := urlUUIDParam(w, r, "subscriptionID")
+	topic, ok := urlTopic(w, r)
 	if !ok {
 		return
 	}
-	subscription, err := h.subscriptions.Get(r.Context(), destinationID, subscriptionID)
+	subscription, err := h.subscriptions.Get(r.Context(), destinationID, topic)
 	if err != nil {
 		renderSubscriptionError(w, r, err)
 		return
@@ -153,47 +146,41 @@ func (h *SubscriptionHandler) GetSubscription(w http.ResponseWriter, r *http.Req
 	render.JSON(w, r, newSubscriptionResource(subscription))
 }
 
-// UpdateSubscription adds topics to and removes topics from a
-// subscription.
-func (h *SubscriptionHandler) UpdateSubscription(w http.ResponseWriter, r *http.Request) {
+// PutSubscription subscribes a destination to a topic. It returns 201 when
+// the subscription is new and 200 when it already existed, so a retry is
+// safe.
+func (h *SubscriptionHandler) PutSubscription(w http.ResponseWriter, r *http.Request) {
 	destinationID, ok := urlUUID(w, r)
 	if !ok {
 		return
 	}
-	subscriptionID, ok := urlUUIDParam(w, r, "subscriptionID")
+	topic, ok := urlTopic(w, r)
 	if !ok {
 		return
 	}
-
-	var body updateSubscriptionRequest
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		renderError(w, r, http.StatusBadRequest, "request body is not valid JSON")
-		return
-	}
-
-	subscription, err := h.subscriptions.ChangeTopics(r.Context(), destinationID, subscriptionID, services.ChangeTopicsInput{
-		Add:    body.Add,
-		Remove: body.Remove,
-	})
+	subscription, created, err := h.subscriptions.Subscribe(r.Context(), destinationID, topic)
 	if err != nil {
 		renderSubscriptionError(w, r, err)
 		return
 	}
+	if created {
+		render.Status(r, http.StatusCreated)
+	}
 	render.JSON(w, r, newSubscriptionResource(subscription))
 }
 
-// DeleteSubscription unsubscribes a destination from a source and returns
-// 204.
+// DeleteSubscription unsubscribes a destination from a topic and returns
+// 204, whether or not it was subscribed, so a retry is safe.
 func (h *SubscriptionHandler) DeleteSubscription(w http.ResponseWriter, r *http.Request) {
 	destinationID, ok := urlUUID(w, r)
 	if !ok {
 		return
 	}
-	subscriptionID, ok := urlUUIDParam(w, r, "subscriptionID")
+	topic, ok := urlTopic(w, r)
 	if !ok {
 		return
 	}
-	if err := h.subscriptions.Unsubscribe(r.Context(), destinationID, subscriptionID); err != nil {
+	if err := h.subscriptions.Unsubscribe(r.Context(), destinationID, topic); err != nil {
 		renderSubscriptionError(w, r, err)
 		return
 	}
@@ -204,15 +191,10 @@ func (h *SubscriptionHandler) DeleteSubscription(w http.ResponseWriter, r *http.
 // services.SubscriptionService onto HTTP responses.
 func renderSubscriptionError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
-	case errors.Is(err, services.ErrDestinationNotFound), errors.Is(err, services.ErrSubscriptionNotFound):
+	case errors.Is(err, services.ErrDestinationNotFound),
+		errors.Is(err, services.ErrSubscriptionNotFound):
 		renderError(w, r, http.StatusNotFound, err.Error())
-	case errors.Is(err, services.ErrSubscriptionExists), errors.Is(err, services.ErrSubscriptionIDTaken):
-		renderError(w, r, http.StatusConflict, err.Error())
-	case errors.Is(err, services.ErrSubscriptionSourceInvalid),
-		errors.Is(err, services.ErrSubscriptionIDInvalid),
-		errors.Is(err, services.ErrSubscriptionTopicsRequired),
-		errors.Is(err, services.ErrSubscriptionTopicInvalid),
-		errors.Is(err, services.ErrSubscriptionLastTopic):
+	case errors.Is(err, services.ErrSubscriptionTopicInvalid):
 		renderError(w, r, http.StatusUnprocessableEntity, err.Error())
 	case errors.Is(err, services.ErrInvalidPage):
 		renderError(w, r, http.StatusBadRequest, pageErrorMessage(err))

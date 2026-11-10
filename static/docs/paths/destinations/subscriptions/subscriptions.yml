@@ -12,9 +12,9 @@ get:
   x-stability: prototype
   summary: List a destination's subscriptions
   description: >-
-    Returns a page of the destination's subscriptions, one per source,
-    ordered by the source's slug. Follow the `Link` header's `next` link for
-    the rest.
+    Returns a page of the destination's subscriptions, one per topic or
+    pattern, ordered by topic. Follow the `Link` header's `next` link for the
+    rest.
   tags:
     - Subscriptions
   parameters:
@@ -48,21 +48,19 @@ get:
           schema:
             $ref: "../../../schemas.yml#/components/schemas/Error"
 
-post:
-  operationId: createSubscription
+put:
+  operationId: replaceSubscriptions
   x-stability: prototype
-  summary: Subscribe a destination to a source's topics
+  summary: Replace a destination's subscriptions
   description: >-
-    Subscribes the destination to one or more of a source's topics. Each
-    topic is either exact, such as `orders.order.created`, or a pattern
-    ending in `*`, such as `orders.order.*` for every `order` event or
-    `orders.*` for everything from the source. A `*` may only be the last
-    part, and matches one or more parts. Every topic must start with the
-    source's slug, and any well-formed topic is accepted, including ones the
-    source hasn't published yet. A destination has one subscription per
-    source: to want more of a source's topics, add them to its subscription.
-    Nothing is delivered to destinations yet. When no ID is supplied, a
-    UUIDv7 is generated.
+    Makes the destination's subscriptions exactly these topics and patterns,
+    in one call: it subscribes to the ones it isn't subscribed to and
+    unsubscribes from every one this list leaves out. An empty list
+    unsubscribes from everything. Every topic follows the same rules as
+    subscribing to one, and if any is invalid, nothing changes. Sending the
+    same list again changes nothing, so it's safe to retry. To add or remove
+    one topic without restating the rest, use the single subscription
+    endpoints instead.
   tags:
     - Subscriptions
   requestBody:
@@ -70,14 +68,10 @@ post:
     content:
       application/json:
         schema:
-          $ref: "../../../schemas.yml#/components/schemas/NewSubscription"
+          $ref: "../../../schemas.yml#/components/schemas/ReplaceSubscriptions"
   responses:
-    "201":
-      description: The subscription was created.
-      content:
-        application/json:
-          schema:
-            $ref: "../../../schemas.yml#/components/schemas/Subscription"
+    "204":
+      description: The destination's subscriptions are now exactly these topics.
     "400":
       description: The destination ID is not a valid UUID, or the request body is not valid JSON.
       content:
@@ -90,18 +84,8 @@ post:
         application/json:
           schema:
             $ref: "../../../schemas.yml#/components/schemas/Error"
-    "409":
-      description: >-
-        The destination is already subscribed to that source, or the supplied
-        subscription ID is already in use.
-      content:
-        application/json:
-          schema:
-            $ref: "../../../schemas.yml#/components/schemas/Error"
     "422":
-      description: >-
-        The request body failed validation: the source doesn't exist, no
-        topics were named, or a topic isn't one of the source's.
+      description: The topics list is missing, or a topic is invalid.
       content:
         application/json:
           schema:

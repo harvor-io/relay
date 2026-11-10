@@ -547,98 +547,48 @@ components:
 
     Subscription:
       type: object
+      description: >-
+        The link between a destination and a topic or pattern whose events it
+        wants. The two of them identify it. Deleting the destination deletes
+        it; deleting a source doesn't.
       required:
-        - id
         - destination_id
-        - source_id
-        - topics
+        - topic
         - created_at
-        - updated_at
       properties:
-        id:
-          type: string
-          format: uuid
-          description: Stable unique identifier (UUIDv7).
-          example: 0192a5c8-3b6f-7d4a-9c2e-4f5a6b7c8d9f
         destination_id:
           type: string
           format: uuid
           description: The destination that wants the events.
-        source_id:
+        topic:
           type: string
-          format: uuid
           description: >-
-            The source whose events the subscription covers. The subscription
-            is kept if the source is deleted.
-        topics:
-          type: array
-          minItems: 1
-          description: >-
-            The source's topics the destination wants, sorted. Each is exact,
-            or a pattern ending in `*` that matches one or more further parts.
-          items:
-            type: string
-          example:
-            - orders.order.*
-            - orders.refund.issued
+            The topic, such as `orders.order.created`, or a pattern ending in
+            `*` that matches one or more further parts, such as
+            `orders.order.*`. `*` alone matches every topic.
+          example: orders.order.*
         created_at:
           type: string
           format: date-time
-          description: When the subscription was created.
-        updated_at:
-          type: string
-          format: date-time
-          description: When the subscription's topics last changed.
+          description: When the destination subscribed.
 
-    NewSubscription:
+    ReplaceSubscriptions:
       type: object
       required:
-        - source_id
         - topics
       properties:
-        id:
-          type: string
-          format: uuid
-          description: >-
-            Optional client-supplied UUID for the subscription. When omitted,
-            a UUIDv7 is generated. When supplied, it must not already belong
-            to another subscription.
-        source_id:
-          type: string
-          format: uuid
-          description: The source to subscribe to.
         topics:
           type: array
-          minItems: 1
           description: >-
-            The source's topics the destination wants. Each starts with the
-            source's slug and a `.`, followed by an event type, such as
-            `orders.order.created`, an event type and `.*`, such as
-            `orders.order.*`, or just `*`, as in `orders.*`. Duplicates are
-            dropped.
+            Every topic and pattern the destination should be subscribed to,
+            each following the same rules as subscribing to one. Duplicates
+            are dropped. An empty list unsubscribes from everything.
           items:
             type: string
           example:
             - orders.order.*
             - orders.refund.issued
-
-    UpdateSubscription:
-      type: object
-      properties:
-        add:
-          type: array
-          description: Topics to add, following the same rules as when subscribing.
-          items:
-            type: string
-          example:
-            - orders.shipment.*
-        remove:
-          type: array
-          description: Topics to remove. One the subscription doesn't have is ignored.
-          items:
-            type: string
-          example:
-            - orders.refund.issued
+            - billing.invoice.paid
 
     Envelope:
       type: object

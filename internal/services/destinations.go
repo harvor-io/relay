@@ -342,15 +342,13 @@ func (s *destinationService) setActive(ctx context.Context, id uuid.UUID, active
 	if err != nil {
 		return nil, fmt.Errorf("services: list destination subscriptions: %w", err)
 	}
-	for i := range subscriptions {
-		if active {
-			err = s.bus.Subscribe(ctx, &subscriptions[i])
-		} else {
-			err = s.bus.Unsubscribe(ctx, &subscriptions[i])
-		}
-		if err != nil {
-			return nil, fmt.Errorf("services: update destination routing on eventbus: %w", err)
-		}
+	if active {
+		err = s.bus.Subscribe(ctx, destination, subscriptions)
+	} else {
+		err = s.bus.Unsubscribe(ctx, destination, subscriptions)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("services: update destination routing on eventbus: %w", err)
 	}
 	return destination, nil
 }
@@ -369,6 +367,8 @@ func (s *destinationService) Delete(ctx context.Context, id uuid.UUID) error {
 	if err := s.destinations.Delete(ctx, id); err != nil {
 		return mapDestinationRepoError("delete destination", err)
 	}
+	// The foreign key already did this on SQLite. libSQL doesn't enforce
+	// foreign keys unless asked to, so delete them here too.
 	if err := s.subscriptions.DeleteByDestination(ctx, id); err != nil {
 		return fmt.Errorf("services: delete destination subscriptions: %w", err)
 	}

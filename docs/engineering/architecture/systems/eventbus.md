@@ -21,14 +21,16 @@ envelope's [topic](../../../product/domain/concepts/topic.md),
 projection of `models.Envelope`.
 
 Each destination has a durable queue, `relay.destination.<id>`, declared when
-the destination is created. Each topic in an active destination's
-[subscriptions](../../../product/domain/concepts/subscription.md) is a binding
-of that queue on `relay_ingest`. The broker decides which queues get a message;
-Relay never matches sources to destinations itself. The services keep the
-bindings in step with what's stored:
+the destination is created. Each of an active destination's
+[subscriptions](../../../product/domain/concepts/subscription.md) is one
+binding of that queue on `relay_ingest`, keyed by its topic. Neither a
+subscription nor a binding names a source: the topic carries the source's
+slug, and the broker decides which queues get a message. Relay never matches
+sources to destinations itself. The services keep the bindings in step with
+what's stored:
 
-- Subscribing, changing a subscription's topics, and unsubscribing bind and
-  unbind them, but only while the destination is active.
+- Subscribing, replacing a destination's subscriptions, and unsubscribing bind
+  and unbind them, but only while the destination is active.
 - Deactivating a destination unbinds all of its subscriptions, and activating
   it binds them again from the database.
 - Deleting a destination deletes its queue.
@@ -65,16 +67,23 @@ queue and delivers by the destination's type. Nothing consumes the queues yet.
   events, as the
   [routing rules](../../../product/domain/rules/routing.md#an-inactive-destination-misses-events)
   require.
-- A subscription's trailing `*` binds as `#`, which matches zero or more parts,
-  where the rule says one or more. So `orders.order.*` also matches an event
-  whose topic is exactly `orders.order`. Only an event type equal to the
-  pattern's prefix can tell the difference.
+- A subscription's trailing `*` binds as `#`, and `*` alone binds as `#` too.
+  `#` matches zero or more parts, where the rule says one or more. So
+  `orders.order.*` also matches an event whose topic is exactly
+  `orders.order`. Only an event type equal to the pattern's prefix can tell
+  the difference.
+- A queue gets one copy of a message however many of its bindings match it,
+  so overlapping subscriptions, such as `orders.*` and `orders.order.*`,
+  don't duplicate events. For the same reason, unsubscribing from a topic
+  doesn't stop its events while another of the destination's patterns still
+  matches them.
 - The database write and the bus call aren't atomic. If the bus call fails,
   the request returns 500 with the database already changed, and the bindings
-  no longer match what's stored. Deactivating and then activating the
-  destination rebinds it from the database, which repairs it. It can't remove
-  a binding the database no longer knows about, though: deleting the
-  destination does that, along with its queue.
+  no longer match what's stored. Repeating the request repairs it: subscribing
+  and replacing rebind every topic they keep, and unsubscribing unbinds even
+  when nothing was stored. So does deactivating and then activating the
+  destination, which rebinds it from the database, though that can't remove a
+  binding the database no longer knows about.
 - `destinationService.Delete` deletes the destination's row and subscriptions
   before its queue. If deleting the queue fails, the queue and any events in
   it are left on the broker, and Relay can't reach them anymore: delete
@@ -83,8 +92,6 @@ queue and delivers by the destination's type. Nothing consumes the queues yet.
   or one whose queue declaration failed after its row was written. It gets one
   on its first subscription, because `Subscribe` declares the queue before
   binding.
-- A source's deletion leaves its subscriptions' bindings in place, by the
-  [subscription rules](../../../product/domain/rules/subscriptions.md#subscriptions-outlive-their-source).
 - The AMQP connection is opened once at startup and never re-established. If it
   drops, every publish fails until the process restarts. `/readyz` reports the
   `eventbus` check down, so the process leaves rotation, but `/livez` stays up,
@@ -119,7 +126,7 @@ stop compiling.
 **Adding an eventbus driver:** implement `bus.Bus` in a new package under
 `internal/bus/`, with every method idempotent, including `Setup`. Map
 destinations and subscriptions onto the broker's own primitives, translating a
-trailing `*` into its wildcard, and select it by `EVENTBUS_DRIVER`
+`*` into its wildcard, and select it by `EVENTBUS_DRIVER`
 in `serve.go` and `internal/config`. Keep the routing key as the envelope's topic
 and the body as the same wire format, or consumers break when the driver
 changes.

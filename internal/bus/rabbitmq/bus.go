@@ -126,10 +126,14 @@ func destinationQueue(id fmt.Stringer) string {
 }
 
 // bindingKey translates a subscription's topic into a routing key pattern
-// for the topic exchange. A trailing "*" becomes "#", which matches any
-// number of parts. Event types can't contain "*" or "#", so an exact topic
-// binds as itself and never acts as a wildcard.
+// for the topic exchange. A "*" ending the pattern, or making up all of it,
+// becomes "#", which matches any number of parts. Event types can't contain
+// "*" or "#", so an exact topic binds as itself and never acts as a
+// wildcard.
 func bindingKey(topic models.Topic) string {
+	if topic == models.Wildcard {
+		return "#"
+	}
 	if prefix, ok := strings.CutSuffix(topic.String(), models.WildcardSuffix); ok {
 		return prefix + ".#"
 	}
@@ -171,34 +175,6 @@ func declareQueue(ch *amqp.Channel, id fmt.Stringer) error {
 	return nil
 }
 
-// bindTopics binds the destination's queue to the ingest exchange for each
-// topic. Binding a key that is already bound is a no-op.
-func bindTopics(ch *amqp.Channel, id fmt.Stringer, topics []models.Topic) error {
-	name := destinationQueue(id)
-	for _, topic := range topics {
-		if err := ch.QueueBind(name, bindingKey(topic), ingestExchange, false, nil); err != nil {
-			return fmt.Errorf("rabbitmq: bind queue %s: %w", name, err)
-		}
-	}
-	return nil
-}
-
-// unbindTopics removes the destination queue's binding for each topic.
-// Unbinding a key that isn't bound is a no-op. A queue that doesn't exist
-// has no bindings left, so it counts as success.
-func unbindTopics(ch *amqp.Channel, id fmt.Stringer, topics []models.Topic) error {
-	name := destinationQueue(id)
-	for _, topic := range topics {
-		if err := ch.QueueUnbind(name, bindingKey(topic), ingestExchange, nil); err != nil {
-			if isNotFound(err) {
-				return nil
-			}
-			return fmt.Errorf("rabbitmq: unbind queue %s: %w", name, err)
-		}
-	}
-	return nil
-}
-
 // AddDestination declares the destination's durable queue.
 func (b *Bus) AddDestination(_ context.Context, destination *models.Destination) error {
 	return b.withChannel(func(ch *amqp.Channel) error {
@@ -219,51 +195,46 @@ func (b *Bus) RemoveDestination(_ context.Context, destination *models.Destinati
 	})
 }
 
-// Subscribe declares the destination's queue, then binds it for each of
-// subscription's topics.
-func (b *Bus) Subscribe(_ context.Context, subscription *models.Subscription) error {
-	return b.withChannel(func(ch *amqp.Channel) error {
-		if err := declareQueue(ch, subscription.DestinationID); err != nil {
-			return err
-		}
-		return bindTopics(ch, subscription.DestinationID, subscription.Topics)
-	})
-}
-
-// Unsubscribe removes the destination queue's binding for each of
-// subscription's topics.
-func (b *Bus) Unsubscribe(_ context.Context, subscription *models.Subscription) error {
-	return b.withChannel(func(ch *amqp.Channel) error {
-		return unbindTopics(ch, subscription.DestinationID, subscription.Topics)
-	})
-}
-
-// ChangeSubscription declares the destination's queue and binds it for
-// each of current's topics, then removes the bindings for the topics only
-// previous has.
-func (b *Bus) ChangeSubscription(_ context.Context, previous, current *models.Subscription) error {
-	return b.withChannel(func(ch *amqp.Channel) error {
-		if err := declareQueue(ch, current.DestinationID); err != nil {
-			return err
-		}
-		if err := bindTopics(ch, current.DestinationID, current.Topics); err != nil {
-			return err
-		}
-		return unbindTopics(ch, previous.DestinationID, removedTopics(previous.Topics, current.Topics))
-	})
-}
-
-// removedTopics returns the topics in previous that current doesn't have.
-func removedTopics(previous, current []models.Topic) []models.Topic {
-	kept := make(map[models.Topic]bool, len(current))
-	for _, topic := range current {
-		kept[topic] = true
+// Subscribe declares the destination's queue, then binds it once for each
+// subscription's topic, all on one channel. Binding a key that is already
+// bound is a no-op.
+func (b *Bus) Subscribe(_ context.Context, destination *models.Destination, subscriptions []models.Subscription) error {
+	if len(subscriptions) == 0 {
+		return nil
 	}
-	var removed []models.Topic
-	for _, topic := range previous {
-		if !kept[topic] {
-			removed = append(removed, topic)
+	return b.withChannel(func(ch *amqp.Channel) error {
+		if err := declareQueue(ch, destination.ID); err != nil {
+			return err
 		}
+		name := destinationQueue(destination.ID)
+		for i := range subscriptions {
+			if err := ch.QueueBind(name, bindingKey(subscriptions[i].Topic), ingestExchange, false, nil); err != nil {
+				return fmt.Errorf("rabbitmq: bind queue %s: %w", name, err)
+			}
+		}
+		return nil
+	})
+}
+
+// Unsubscribe removes the destination queue's binding for each
+// subscription's topic, all on one channel. Unbinding a key that isn't
+// bound is a no-op. A queue that doesn't exist has no bindings left, so it
+// counts as success, and the driver stops there: the broker closes the
+// channel when it reports a missing queue.
+func (b *Bus) Unsubscribe(_ context.Context, destination *models.Destination, subscriptions []models.Subscription) error {
+	if len(subscriptions) == 0 {
+		return nil
 	}
-	return removed
+	return b.withChannel(func(ch *amqp.Channel) error {
+		name := destinationQueue(destination.ID)
+		for i := range subscriptions {
+			if err := ch.QueueUnbind(name, bindingKey(subscriptions[i].Topic), ingestExchange, nil); err != nil {
+				if isNotFound(err) {
+					return nil
+				}
+				return fmt.Errorf("rabbitmq: unbind queue %s: %w", name, err)
+			}
+		}
+		return nil
+	})
 }

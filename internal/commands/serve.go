@@ -114,12 +114,12 @@ func ServeCommand() *cli.Command {
 			sourceRepo := sqliterepo.NewSourceRepository(db)
 			sourceKeyRepo := sqliterepo.NewSourceKeyRepository(db)
 			envelopeRepo := sqliterepo.NewEnvelopeRepository(db)
-			sourceService := services.NewSourceService(sourceRepo, envelopeRepo, sourceKeyRepo, secretStore, eventBus)
-			sourceKeyService := services.NewSourceKeyService(sourceKeyRepo, sourceRepo, secretStore, enc)
 			destinationRepo := sqliterepo.NewDestinationRepository(db)
 			subscriptionRepo := sqliterepo.NewSubscriptionRepository(db)
+			sourceService := services.NewSourceService(sourceRepo, envelopeRepo, sourceKeyRepo, secretStore, eventBus)
+			sourceKeyService := services.NewSourceKeyService(sourceKeyRepo, sourceRepo, secretStore, enc)
 			destinationService := services.NewDestinationService(destinationRepo, subscriptionRepo, secretStore, enc, eventBus)
-			subscriptionService := services.NewSubscriptionService(subscriptionRepo, destinationRepo, sourceRepo, eventBus)
+			subscriptionService := services.NewSubscriptionService(subscriptionRepo, destinationRepo, eventBus)
 
 			sourceEventAuth := middleware.HMACAuth(sourceService, sourceKeyService)
 

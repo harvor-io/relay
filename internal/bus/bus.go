@@ -43,17 +43,16 @@ type Bus interface {
 	// doesn't have is not an error.
 	RemoveDestination(ctx context.Context, destination *models.Destination) error
 
-	// Subscribe routes events matching each of subscription's Topics to its
-	// destination, adding the destination first if the bus doesn't have it.
-	Subscribe(ctx context.Context, subscription *models.Subscription) error
+	// Subscribe routes events matching each of subscriptions' Topics to
+	// destination, adding destination first if the bus doesn't have it.
+	// Every subscription belongs to destination, and subscriptions are
+	// usually changed in bulk, so one call covers them all. Empty
+	// subscriptions is a no-op.
+	Subscribe(ctx context.Context, destination *models.Destination, subscriptions []models.Subscription) error
 
-	// Unsubscribe stops routing events matching subscription's Topics to its
-	// destination. Topics that aren't routed, or a destination the bus
-	// doesn't have, are not an error.
-	Unsubscribe(ctx context.Context, subscription *models.Subscription) error
-
-	// ChangeSubscription moves a subscription from previous's Topics to
-	// current's: it routes every Topic in current, then stops routing the
-	// Topics only previous has, so a Topic in both is never interrupted.
-	ChangeSubscription(ctx context.Context, previous, current *models.Subscription) error
+	// Unsubscribe stops routing events matching each of subscriptions'
+	// Topics to destination. Every subscription belongs to destination. A
+	// Topic that isn't routed, or a destination the bus doesn't have, is
+	// not an error. Empty subscriptions is a no-op.
+	Unsubscribe(ctx context.Context, destination *models.Destination, subscriptions []models.Subscription) error
 }
