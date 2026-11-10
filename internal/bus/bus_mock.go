@@ -19,11 +19,26 @@ var _ Bus = &BusMock{}
 //
 //		// make and configure a mocked Bus
 //		mockedBus := &BusMock{
+//			AddDestinationFunc: func(ctx context.Context, destination *models.Destination) error {
+//				panic("mock out the AddDestination method")
+//			},
+//			ChangeSubscriptionFunc: func(ctx context.Context, previous *models.Subscription, current *models.Subscription) error {
+//				panic("mock out the ChangeSubscription method")
+//			},
 //			PublishFunc: func(ctx context.Context, envelope *models.Envelope) error {
 //				panic("mock out the Publish method")
 //			},
+//			RemoveDestinationFunc: func(ctx context.Context, destination *models.Destination) error {
+//				panic("mock out the RemoveDestination method")
+//			},
 //			SetupFunc: func(ctx context.Context) error {
 //				panic("mock out the Setup method")
+//			},
+//			SubscribeFunc: func(ctx context.Context, subscription *models.Subscription) error {
+//				panic("mock out the Subscribe method")
+//			},
+//			UnsubscribeFunc: func(ctx context.Context, subscription *models.Subscription) error {
+//				panic("mock out the Unsubscribe method")
 //			},
 //		}
 //
@@ -32,14 +47,45 @@ var _ Bus = &BusMock{}
 //
 //	}
 type BusMock struct {
+	// AddDestinationFunc mocks the AddDestination method.
+	AddDestinationFunc func(ctx context.Context, destination *models.Destination) error
+
+	// ChangeSubscriptionFunc mocks the ChangeSubscription method.
+	ChangeSubscriptionFunc func(ctx context.Context, previous *models.Subscription, current *models.Subscription) error
+
 	// PublishFunc mocks the Publish method.
 	PublishFunc func(ctx context.Context, envelope *models.Envelope) error
+
+	// RemoveDestinationFunc mocks the RemoveDestination method.
+	RemoveDestinationFunc func(ctx context.Context, destination *models.Destination) error
 
 	// SetupFunc mocks the Setup method.
 	SetupFunc func(ctx context.Context) error
 
+	// SubscribeFunc mocks the Subscribe method.
+	SubscribeFunc func(ctx context.Context, subscription *models.Subscription) error
+
+	// UnsubscribeFunc mocks the Unsubscribe method.
+	UnsubscribeFunc func(ctx context.Context, subscription *models.Subscription) error
+
 	// calls tracks calls to the methods.
 	calls struct {
+		// AddDestination holds details about calls to the AddDestination method.
+		AddDestination []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Destination is the destination argument value.
+			Destination *models.Destination
+		}
+		// ChangeSubscription holds details about calls to the ChangeSubscription method.
+		ChangeSubscription []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Previous is the previous argument value.
+			Previous *models.Subscription
+			// Current is the current argument value.
+			Current *models.Subscription
+		}
 		// Publish holds details about calls to the Publish method.
 		Publish []struct {
 			// Ctx is the ctx argument value.
@@ -47,14 +93,116 @@ type BusMock struct {
 			// Envelope is the envelope argument value.
 			Envelope *models.Envelope
 		}
+		// RemoveDestination holds details about calls to the RemoveDestination method.
+		RemoveDestination []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Destination is the destination argument value.
+			Destination *models.Destination
+		}
 		// Setup holds details about calls to the Setup method.
 		Setup []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 		}
+		// Subscribe holds details about calls to the Subscribe method.
+		Subscribe []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Subscription is the subscription argument value.
+			Subscription *models.Subscription
+		}
+		// Unsubscribe holds details about calls to the Unsubscribe method.
+		Unsubscribe []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Subscription is the subscription argument value.
+			Subscription *models.Subscription
+		}
 	}
-	lockPublish sync.RWMutex
-	lockSetup   sync.RWMutex
+	lockAddDestination     sync.RWMutex
+	lockChangeSubscription sync.RWMutex
+	lockPublish            sync.RWMutex
+	lockRemoveDestination  sync.RWMutex
+	lockSetup              sync.RWMutex
+	lockSubscribe          sync.RWMutex
+	lockUnsubscribe        sync.RWMutex
+}
+
+// AddDestination calls AddDestinationFunc.
+func (mock *BusMock) AddDestination(ctx context.Context, destination *models.Destination) error {
+	if mock.AddDestinationFunc == nil {
+		panic("BusMock.AddDestinationFunc: method is nil but Bus.AddDestination was just called")
+	}
+	callInfo := struct {
+		Ctx         context.Context
+		Destination *models.Destination
+	}{
+		Ctx:         ctx,
+		Destination: destination,
+	}
+	mock.lockAddDestination.Lock()
+	mock.calls.AddDestination = append(mock.calls.AddDestination, callInfo)
+	mock.lockAddDestination.Unlock()
+	return mock.AddDestinationFunc(ctx, destination)
+}
+
+// AddDestinationCalls gets all the calls that were made to AddDestination.
+// Check the length with:
+//
+//	len(mockedBus.AddDestinationCalls())
+func (mock *BusMock) AddDestinationCalls() []struct {
+	Ctx         context.Context
+	Destination *models.Destination
+} {
+	var calls []struct {
+		Ctx         context.Context
+		Destination *models.Destination
+	}
+	mock.lockAddDestination.RLock()
+	calls = mock.calls.AddDestination
+	mock.lockAddDestination.RUnlock()
+	return calls
+}
+
+// ChangeSubscription calls ChangeSubscriptionFunc.
+func (mock *BusMock) ChangeSubscription(ctx context.Context, previous *models.Subscription, current *models.Subscription) error {
+	if mock.ChangeSubscriptionFunc == nil {
+		panic("BusMock.ChangeSubscriptionFunc: method is nil but Bus.ChangeSubscription was just called")
+	}
+	callInfo := struct {
+		Ctx      context.Context
+		Previous *models.Subscription
+		Current  *models.Subscription
+	}{
+		Ctx:      ctx,
+		Previous: previous,
+		Current:  current,
+	}
+	mock.lockChangeSubscription.Lock()
+	mock.calls.ChangeSubscription = append(mock.calls.ChangeSubscription, callInfo)
+	mock.lockChangeSubscription.Unlock()
+	return mock.ChangeSubscriptionFunc(ctx, previous, current)
+}
+
+// ChangeSubscriptionCalls gets all the calls that were made to ChangeSubscription.
+// Check the length with:
+//
+//	len(mockedBus.ChangeSubscriptionCalls())
+func (mock *BusMock) ChangeSubscriptionCalls() []struct {
+	Ctx      context.Context
+	Previous *models.Subscription
+	Current  *models.Subscription
+} {
+	var calls []struct {
+		Ctx      context.Context
+		Previous *models.Subscription
+		Current  *models.Subscription
+	}
+	mock.lockChangeSubscription.RLock()
+	calls = mock.calls.ChangeSubscription
+	mock.lockChangeSubscription.RUnlock()
+	return calls
 }
 
 // Publish calls PublishFunc.
@@ -93,6 +241,42 @@ func (mock *BusMock) PublishCalls() []struct {
 	return calls
 }
 
+// RemoveDestination calls RemoveDestinationFunc.
+func (mock *BusMock) RemoveDestination(ctx context.Context, destination *models.Destination) error {
+	if mock.RemoveDestinationFunc == nil {
+		panic("BusMock.RemoveDestinationFunc: method is nil but Bus.RemoveDestination was just called")
+	}
+	callInfo := struct {
+		Ctx         context.Context
+		Destination *models.Destination
+	}{
+		Ctx:         ctx,
+		Destination: destination,
+	}
+	mock.lockRemoveDestination.Lock()
+	mock.calls.RemoveDestination = append(mock.calls.RemoveDestination, callInfo)
+	mock.lockRemoveDestination.Unlock()
+	return mock.RemoveDestinationFunc(ctx, destination)
+}
+
+// RemoveDestinationCalls gets all the calls that were made to RemoveDestination.
+// Check the length with:
+//
+//	len(mockedBus.RemoveDestinationCalls())
+func (mock *BusMock) RemoveDestinationCalls() []struct {
+	Ctx         context.Context
+	Destination *models.Destination
+} {
+	var calls []struct {
+		Ctx         context.Context
+		Destination *models.Destination
+	}
+	mock.lockRemoveDestination.RLock()
+	calls = mock.calls.RemoveDestination
+	mock.lockRemoveDestination.RUnlock()
+	return calls
+}
+
 // Setup calls SetupFunc.
 func (mock *BusMock) Setup(ctx context.Context) error {
 	if mock.SetupFunc == nil {
@@ -122,5 +306,77 @@ func (mock *BusMock) SetupCalls() []struct {
 	mock.lockSetup.RLock()
 	calls = mock.calls.Setup
 	mock.lockSetup.RUnlock()
+	return calls
+}
+
+// Subscribe calls SubscribeFunc.
+func (mock *BusMock) Subscribe(ctx context.Context, subscription *models.Subscription) error {
+	if mock.SubscribeFunc == nil {
+		panic("BusMock.SubscribeFunc: method is nil but Bus.Subscribe was just called")
+	}
+	callInfo := struct {
+		Ctx          context.Context
+		Subscription *models.Subscription
+	}{
+		Ctx:          ctx,
+		Subscription: subscription,
+	}
+	mock.lockSubscribe.Lock()
+	mock.calls.Subscribe = append(mock.calls.Subscribe, callInfo)
+	mock.lockSubscribe.Unlock()
+	return mock.SubscribeFunc(ctx, subscription)
+}
+
+// SubscribeCalls gets all the calls that were made to Subscribe.
+// Check the length with:
+//
+//	len(mockedBus.SubscribeCalls())
+func (mock *BusMock) SubscribeCalls() []struct {
+	Ctx          context.Context
+	Subscription *models.Subscription
+} {
+	var calls []struct {
+		Ctx          context.Context
+		Subscription *models.Subscription
+	}
+	mock.lockSubscribe.RLock()
+	calls = mock.calls.Subscribe
+	mock.lockSubscribe.RUnlock()
+	return calls
+}
+
+// Unsubscribe calls UnsubscribeFunc.
+func (mock *BusMock) Unsubscribe(ctx context.Context, subscription *models.Subscription) error {
+	if mock.UnsubscribeFunc == nil {
+		panic("BusMock.UnsubscribeFunc: method is nil but Bus.Unsubscribe was just called")
+	}
+	callInfo := struct {
+		Ctx          context.Context
+		Subscription *models.Subscription
+	}{
+		Ctx:          ctx,
+		Subscription: subscription,
+	}
+	mock.lockUnsubscribe.Lock()
+	mock.calls.Unsubscribe = append(mock.calls.Unsubscribe, callInfo)
+	mock.lockUnsubscribe.Unlock()
+	return mock.UnsubscribeFunc(ctx, subscription)
+}
+
+// UnsubscribeCalls gets all the calls that were made to Unsubscribe.
+// Check the length with:
+//
+//	len(mockedBus.UnsubscribeCalls())
+func (mock *BusMock) UnsubscribeCalls() []struct {
+	Ctx          context.Context
+	Subscription *models.Subscription
+} {
+	var calls []struct {
+		Ctx          context.Context
+		Subscription *models.Subscription
+	}
+	mock.lockUnsubscribe.RLock()
+	calls = mock.calls.Unsubscribe
+	mock.lockUnsubscribe.RUnlock()
 	return calls
 }
