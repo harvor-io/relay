@@ -11,12 +11,21 @@ get:
   operationId: listSourceKeys
   x-stability: alpha
   summary: List a source's keys
-  description: Returns every key belonging to the source, ordered by name.
+  description: >-
+    Returns a page of the source's keys, ordered by name. Follow the `Link`
+    header's `next` link for the rest.
   tags:
     - Source Keys
+  parameters:
+    - $ref: "../../../schemas.yml#/components/parameters/After"
+    - $ref: "../../../schemas.yml#/components/parameters/Before"
+    - $ref: "../../../schemas.yml#/components/parameters/Size"
   responses:
     "200":
       description: The list of keys.
+      headers:
+        Link:
+          $ref: "../../../schemas.yml#/components/headers/Link"
       content:
         application/json:
           schema:
@@ -24,7 +33,9 @@ get:
             items:
               $ref: "../../../schemas.yml#/components/schemas/SourceKey"
     "400":
-      description: The source ID is not a valid UUID.
+      description: >-
+        The source ID is not a valid UUID, or the page selection is invalid,
+        such as a size out of range or a cursor from another listing.
       content:
         application/json:
           schema:

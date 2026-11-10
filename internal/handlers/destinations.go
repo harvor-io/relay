@@ -92,14 +92,20 @@ type updateDestinationRequest struct {
 	Description *string `json:"description"`
 }
 
-// ListDestinations returns every destination as a JSON array.
+// ListDestinations returns a page of destinations as a JSON array, with the
+// other pages in the Link header.
 func (h *DestinationHandler) ListDestinations(w http.ResponseWriter, r *http.Request) {
-	destinations, err := h.destinations.List(r.Context())
+	selector, ok := cursorSelector(w, r)
+	if !ok {
+		return
+	}
+	page, err := h.destinations.List(r.Context(), selector)
 	if err != nil {
 		renderDestinationError(w, r, err)
 		return
 	}
-	render.JSON(w, r, newDestinationResourceList(destinations))
+	setCursorLinks(w, r, page)
+	render.JSON(w, r, newDestinationResourceList(page.Items))
 }
 
 // GetDestination returns a single destination by ID.
@@ -225,6 +231,8 @@ func renderDestinationError(w http.ResponseWriter, r *http.Request, err error) {
 		errors.Is(err, services.ErrDestinationHMACConfigInvalid),
 		errors.Is(err, services.ErrDestinationIDInvalid):
 		renderError(w, r, http.StatusUnprocessableEntity, err.Error())
+	case errors.Is(err, services.ErrInvalidPage):
+		renderError(w, r, http.StatusBadRequest, pageErrorMessage(err))
 	default:
 		renderInternalError(w, r, err)
 	}

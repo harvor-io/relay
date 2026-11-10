@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/exalynt/turn/paginator/cursor"
+	"github.com/exalynt/turn/store"
+	turnsql "github.com/exalynt/turn/store/sql"
 	"github.com/gofrs/uuid/v5"
 
 	sqlitedb "github.com/harvor-io/relay/internal/database/sqlite"
@@ -77,27 +80,36 @@ func (r *SourceRepository) GetBySlug(ctx context.Context, slug string) (*models.
 	return scanSource(row)
 }
 
-// List returns every source ordered by name.
-func (r *SourceRepository) List(ctx context.Context) ([]models.Source, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT `+sourceColumns+` FROM sources ORDER BY name`)
-	if err != nil {
-		return nil, fmt.Errorf("sqlite: list sources: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
+// sourcesByName pages sources by name, then ID, so the order is total.
+var sourcesByName = sqlitedb.MustCursor(
+	store.Asc("name", func(s models.Source) string { return s.Name }),
+	store.Asc("id", func(s models.Source) string { return s.ID.String() }),
+)
 
-	var sources []models.Source
-	for rows.Next() {
-		source, err := scanSource(rows)
+// List returns the page of sources query selects, ordered by name, then ID.
+func (r *SourceRepository) List(ctx context.Context, query repositories.SourceQuery) (cursor.Page[models.Source], error) {
+	return sourcesByName.List(ctx, query.Page, func(ctx context.Context, q store.Query) ([]models.Source, error) {
+		c := turnsql.Render(sqlitedb.Dialect, q, 1)
+		rows, err := r.db.QueryContext(ctx,
+			`SELECT `+sourceColumns+` FROM sources`+c.Filter()+c.Tail(), c.Args...)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("sqlite: list sources: %w", err)
 		}
-		sources = append(sources, *source)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("sqlite: iterate sources: %w", err)
-	}
-	return sources, nil
+		defer func() { _ = rows.Close() }()
+
+		var sources []models.Source
+		for rows.Next() {
+			source, err := scanSource(rows)
+			if err != nil {
+				return nil, err
+			}
+			sources = append(sources, *source)
+		}
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("sqlite: iterate sources: %w", err)
+		}
+		return sources, nil
+	}, "sources")
 }
 
 // Update overwrites the mutable columns of an existing source.

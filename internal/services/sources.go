@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/exalynt/turn/paginator/cursor"
 	"github.com/gofrs/uuid/v5"
 	"github.com/gosimple/slug"
 
@@ -113,8 +114,9 @@ type SourceService interface {
 	// parse as one. Returns ErrSourceNotFound if neither matches.
 	GetByIDOrSlug(ctx context.Context, idOrSlug string) (*models.Source, error)
 
-	// List returns every source, ordered by name.
-	List(ctx context.Context) ([]models.Source, error)
+	// List returns the page of sources page selects, ordered by name, then
+	// ID. It returns ErrInvalidPage if the selection is invalid.
+	List(ctx context.Context, page cursor.Selector) (cursor.Page[models.Source], error)
 
 	// Create validates input and persists a new source. It returns
 	// ErrSourceNameRequired, ErrSourceNameTooLong, ErrSourceDescriptionTooLong,
@@ -238,11 +240,11 @@ func (s *sourceService) GetByIDOrSlug(ctx context.Context, idOrSlug string) (*mo
 	return source, nil
 }
 
-// List returns every source, ordered by name.
-func (s *sourceService) List(ctx context.Context) ([]models.Source, error) {
-	sources, err := s.sources.List(ctx)
+// List returns the page of sources page selects, ordered by name, then ID.
+func (s *sourceService) List(ctx context.Context, page cursor.Selector) (cursor.Page[models.Source], error) {
+	sources, err := s.sources.List(ctx, repositories.SourceQuery{Page: page})
 	if err != nil {
-		return nil, fmt.Errorf("services: list sources: %w", err)
+		return cursor.Page[models.Source]{}, listError("list sources", err)
 	}
 	return sources, nil
 }

@@ -11,14 +11,6 @@ static/docs/paths/health/readyz.yml:
 static/docs/paths/health/healthz.yml:
   operation-4xx-response:
     - '#/get/responses'
-# Listing sources and destinations takes no input, so neither has a 4XX
-# response.
-static/docs/paths/sources/sources.yml:
-  operation-4xx-response:
-    - '#/get/responses'
-static/docs/paths/destinations/destinations.yml:
-  operation-4xx-response:
-    - '#/get/responses'
 # A config's shape depends on its type, and each has one type so far, so each
 # oneOf lists one schema.
 static/docs/schemas.yml:

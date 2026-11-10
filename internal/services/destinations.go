@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/exalynt/turn/paginator/cursor"
 	"github.com/gofrs/uuid/v5"
 
 	"github.com/harvor-io/relay/internal/models"
@@ -97,8 +98,9 @@ type DestinationService interface {
 	// ErrDestinationNotFound.
 	Get(ctx context.Context, id uuid.UUID) (*models.Destination, error)
 
-	// List returns every destination, ordered by name.
-	List(ctx context.Context) ([]models.Destination, error)
+	// List returns the page of destinations page selects, ordered by name,
+	// then ID. It returns ErrInvalidPage if the selection is invalid.
+	List(ctx context.Context, page cursor.Selector) (cursor.Page[models.Destination], error)
 
 	// Create validates input and persists a new destination, which starts
 	// active. When the config's auth.type is "hmac", the caller-supplied
@@ -204,11 +206,12 @@ func (s *destinationService) Get(ctx context.Context, id uuid.UUID) (*models.Des
 	return destination, nil
 }
 
-// List returns every destination, ordered by name.
-func (s *destinationService) List(ctx context.Context) ([]models.Destination, error) {
-	destinations, err := s.destinations.List(ctx)
+// List returns the page of destinations page selects, ordered by name, then
+// ID.
+func (s *destinationService) List(ctx context.Context, page cursor.Selector) (cursor.Page[models.Destination], error) {
+	destinations, err := s.destinations.List(ctx, repositories.DestinationQuery{Page: page})
 	if err != nil {
-		return nil, fmt.Errorf("services: list destinations: %w", err)
+		return cursor.Page[models.Destination]{}, listError("list destinations", err)
 	}
 	return destinations, nil
 }

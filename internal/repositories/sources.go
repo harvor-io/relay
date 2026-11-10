@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 
+	"github.com/exalynt/turn/paginator/cursor"
 	"github.com/gofrs/uuid/v5"
 
 	"github.com/harvor-io/relay/internal/models"
@@ -22,8 +23,9 @@ type SourceRepository interface {
 	// GetBySlug returns the Source with the given slug, or ErrNotFound.
 	GetBySlug(ctx context.Context, slug string) (*models.Source, error)
 
-	// List returns every Source, ordered by name.
-	List(ctx context.Context) ([]models.Source, error)
+	// List returns the page of Sources query selects, ordered by name, then
+	// ID. A selector turn rejects is returned as its paginator error.
+	List(ctx context.Context, query SourceQuery) (cursor.Page[models.Source], error)
 
 	// Update overwrites the mutable fields of an existing Source and refreshes
 	// its UpdatedAt timestamp. It returns ErrNotFound if no such Source exists,
@@ -33,4 +35,9 @@ type SourceRepository interface {
 	// Delete removes the Source with the given ID, returning ErrNotFound if it
 	// does not exist.
 	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+// SourceQuery selects a page of Sources. Sources have no filters yet.
+type SourceQuery struct {
+	Page cursor.Selector
 }

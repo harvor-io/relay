@@ -2,18 +2,33 @@ get:
   operationId: listSources
   x-stability: alpha
   summary: List sources
-  description: Returns every registered source, ordered by name.
+  description: >-
+    Returns a page of registered sources, ordered by name. Follow the `Link`
+    header's `next` link for the rest.
   tags:
     - Sources
+  parameters:
+    - $ref: "../../schemas.yml#/components/parameters/After"
+    - $ref: "../../schemas.yml#/components/parameters/Before"
+    - $ref: "../../schemas.yml#/components/parameters/Size"
   responses:
     "200":
       description: The list of sources.
+      headers:
+        Link:
+          $ref: "../../schemas.yml#/components/headers/Link"
       content:
         application/json:
           schema:
             type: array
             items:
               $ref: "../../schemas.yml#/components/schemas/Source"
+    "400":
+      description: The page selection is invalid, such as a size out of range or a cursor from another listing.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Error"
 
 post:
   operationId: createSource

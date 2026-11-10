@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/exalynt/turn/paginator/cursor"
+	"github.com/exalynt/turn/store"
+	turnsql "github.com/exalynt/turn/store/sql"
 	"github.com/gofrs/uuid/v5"
 
 	sqlitedb "github.com/harvor-io/relay/internal/database/sqlite"
@@ -73,27 +76,38 @@ func (r *DestinationRepository) Get(ctx context.Context, id uuid.UUID) (*models.
 	return scanDestination(row)
 }
 
-// List returns every destination ordered by name.
-func (r *DestinationRepository) List(ctx context.Context) ([]models.Destination, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT `+destinationColumns+` FROM destinations ORDER BY name`)
-	if err != nil {
-		return nil, fmt.Errorf("sqlite: list destinations: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
+// destinationsByName pages destinations by name, then ID, so the order is
+// total.
+var destinationsByName = sqlitedb.MustCursor(
+	store.Asc("name", func(d models.Destination) string { return d.Name }),
+	store.Asc("id", func(d models.Destination) string { return d.ID.String() }),
+)
 
-	var destinations []models.Destination
-	for rows.Next() {
-		destination, err := scanDestination(rows)
+// List returns the page of destinations query selects, ordered by name, then
+// ID.
+func (r *DestinationRepository) List(ctx context.Context, query repositories.DestinationQuery) (cursor.Page[models.Destination], error) {
+	return destinationsByName.List(ctx, query.Page, func(ctx context.Context, q store.Query) ([]models.Destination, error) {
+		c := turnsql.Render(sqlitedb.Dialect, q, 1)
+		rows, err := r.db.QueryContext(ctx,
+			`SELECT `+destinationColumns+` FROM destinations`+c.Filter()+c.Tail(), c.Args...)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("sqlite: list destinations: %w", err)
 		}
-		destinations = append(destinations, *destination)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("sqlite: iterate destinations: %w", err)
-	}
-	return destinations, nil
+		defer func() { _ = rows.Close() }()
+
+		var destinations []models.Destination
+		for rows.Next() {
+			destination, err := scanDestination(rows)
+			if err != nil {
+				return nil, err
+			}
+			destinations = append(destinations, *destination)
+		}
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("sqlite: iterate destinations: %w", err)
+		}
+		return destinations, nil
+	}, "destinations")
 }
 
 // Update overwrites the mutable columns of an existing destination.

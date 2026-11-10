@@ -84,18 +84,24 @@ type createSourceKeyRequest struct {
 	Name string `json:"name"`
 }
 
-// ListSourceKeys returns every key for a source as a JSON array.
+// ListSourceKeys returns a page of a source's keys as a JSON array, with the
+// other pages in the Link header.
 func (h *SourceKeyHandler) ListSourceKeys(w http.ResponseWriter, r *http.Request) {
 	sourceID, ok := urlUUID(w, r)
 	if !ok {
 		return
 	}
-	keys, err := h.keys.ListBySource(r.Context(), sourceID)
+	selector, ok := cursorSelector(w, r)
+	if !ok {
+		return
+	}
+	page, err := h.keys.List(r.Context(), sourceID, selector)
 	if err != nil {
 		renderSourceKeyError(w, r, err)
 		return
 	}
-	render.JSON(w, r, newSourceKeyResourceList(keys))
+	setCursorLinks(w, r, page)
+	render.JSON(w, r, newSourceKeyResourceList(page.Items))
 }
 
 // CreateSourceKey generates a new key for a source and returns it, along with
@@ -208,6 +214,8 @@ func renderSourceKeyError(w http.ResponseWriter, r *http.Request, err error) {
 		errors.Is(err, services.ErrSourceKeyNameTooLong),
 		errors.Is(err, services.ErrSourceKeyIDInvalid):
 		renderError(w, r, http.StatusUnprocessableEntity, err.Error())
+	case errors.Is(err, services.ErrInvalidPage):
+		renderError(w, r, http.StatusBadRequest, pageErrorMessage(err))
 	default:
 		renderInternalError(w, r, err)
 	}

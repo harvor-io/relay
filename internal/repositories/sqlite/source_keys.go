@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/exalynt/turn/paginator/cursor"
+	"github.com/exalynt/turn/store"
+	turnsql "github.com/exalynt/turn/store/sql"
 	"github.com/gofrs/uuid/v5"
 
 	sqlitedb "github.com/harvor-io/relay/internal/database/sqlite"
@@ -71,6 +74,30 @@ func (r *SourceKeyRepository) Get(ctx context.Context, id uuid.UUID) (*models.So
 	return scanSourceKey(row)
 }
 
+// sourceKeysByName pages a source's keys by name, then ID, so the order is
+// total.
+var sourceKeysByName = sqlitedb.MustCursor(
+	store.Asc("name", func(k models.SourceKey) string { return k.Name }),
+	store.Asc("id", func(k models.SourceKey) string { return k.ID.String() }),
+)
+
+// List returns the page of a source's keys query selects, ordered by name,
+// then ID. Each cursor is bound to its source.
+func (r *SourceKeyRepository) List(ctx context.Context, query repositories.SourceKeyQuery) (cursor.Page[models.SourceKey], error) {
+	sourceID := query.SourceID.String()
+	return sourceKeysByName.List(ctx, query.Page, func(ctx context.Context, q store.Query) ([]models.SourceKey, error) {
+		c := turnsql.Render(sqlitedb.Dialect, q, 2)
+		rows, err := r.db.QueryContext(ctx,
+			`SELECT `+sourceKeyColumns+` FROM source_keys WHERE source_id = ?`+c.And()+c.Tail(),
+			append([]any{sourceID}, c.Args...)...)
+		if err != nil {
+			return nil, fmt.Errorf("sqlite: list source keys: %w", err)
+		}
+		defer func() { _ = rows.Close() }()
+		return scanSourceKeys(rows)
+	}, "source_keys", sourceID)
+}
+
 // ListBySource returns every source key belonging to sourceID, ordered by
 // name.
 func (r *SourceKeyRepository) ListBySource(ctx context.Context, sourceID uuid.UUID) ([]models.SourceKey, error) {
@@ -82,7 +109,10 @@ func (r *SourceKeyRepository) ListBySource(ctx context.Context, sourceID uuid.UU
 		return nil, fmt.Errorf("sqlite: list source keys: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
+	return scanSourceKeys(rows)
+}
 
+func scanSourceKeys(rows *sql.Rows) ([]models.SourceKey, error) {
 	var keys []models.SourceKey
 	for rows.Next() {
 		key, err := scanSourceKey(rows)

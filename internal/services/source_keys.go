@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/exalynt/turn/paginator/cursor"
 	"github.com/gofrs/uuid/v5"
 
 	"github.com/harvor-io/relay/internal/models"
@@ -69,9 +70,10 @@ type SourceKeyService interface {
 	// ErrSourceKeyNotFound.
 	Get(ctx context.Context, sourceID, id uuid.UUID) (*models.SourceKey, error)
 
-	// ListBySource returns every key belonging to sourceID, ordered by name.
-	// It returns ErrSourceNotFound if the source does not exist.
-	ListBySource(ctx context.Context, sourceID uuid.UUID) ([]models.SourceKey, error)
+	// List returns the page of sourceID's keys page selects, ordered by
+	// name, then ID. It returns ErrSourceNotFound if the source does not
+	// exist, or ErrInvalidPage if the selection is invalid.
+	List(ctx context.Context, sourceID uuid.UUID, page cursor.Selector) (cursor.Page[models.SourceKey], error)
 
 	// Activate marks the key as active, or returns ErrSourceKeyNotFound.
 	Activate(ctx context.Context, sourceID, id uuid.UUID) (*models.SourceKey, error)
@@ -198,15 +200,15 @@ func (s *sourceKeyService) Get(ctx context.Context, sourceID, id uuid.UUID) (*mo
 	return s.getOwned(ctx, sourceID, id)
 }
 
-// ListBySource returns every key belonging to sourceID, ordered by name. It
-// returns ErrSourceNotFound if the source does not exist.
-func (s *sourceKeyService) ListBySource(ctx context.Context, sourceID uuid.UUID) ([]models.SourceKey, error) {
+// List returns the page of sourceID's keys page selects, ordered by name,
+// then ID. It returns ErrSourceNotFound if the source does not exist.
+func (s *sourceKeyService) List(ctx context.Context, sourceID uuid.UUID, page cursor.Selector) (cursor.Page[models.SourceKey], error) {
 	if _, err := s.sources.Get(ctx, sourceID); err != nil {
-		return nil, mapSourceRepoError("get source", err)
+		return cursor.Page[models.SourceKey]{}, mapSourceRepoError("get source", err)
 	}
-	keys, err := s.keys.ListBySource(ctx, sourceID)
+	keys, err := s.keys.List(ctx, repositories.SourceKeyQuery{SourceID: sourceID, Page: page})
 	if err != nil {
-		return nil, fmt.Errorf("services: list source keys: %w", err)
+		return cursor.Page[models.SourceKey]{}, listError("list source keys", err)
 	}
 	return keys, nil
 }

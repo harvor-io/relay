@@ -125,14 +125,20 @@ type createSourceEventRequest struct {
 	EnvelopeID string          `json:"envelope_id"`
 }
 
-// ListSources returns every source as a JSON array.
+// ListSources returns a page of sources as a JSON array, with the other
+// pages in the Link header.
 func (h *SourceHandler) ListSources(w http.ResponseWriter, r *http.Request) {
-	sources, err := h.sources.List(r.Context())
+	selector, ok := cursorSelector(w, r)
+	if !ok {
+		return
+	}
+	page, err := h.sources.List(r.Context(), selector)
 	if err != nil {
 		renderSourceError(w, r, err)
 		return
 	}
-	render.JSON(w, r, newSourceResourceList(sources))
+	setCursorLinks(w, r, page)
+	render.JSON(w, r, newSourceResourceList(page.Items))
 }
 
 // GetSource returns a single source by ID.
@@ -290,6 +296,8 @@ func renderSourceError(w http.ResponseWriter, r *http.Request, err error) {
 		errors.Is(err, services.ErrSourceEventDataRequired),
 		errors.Is(err, services.ErrSourceEventIDInvalid):
 		renderError(w, r, http.StatusUnprocessableEntity, err.Error())
+	case errors.Is(err, services.ErrInvalidPage):
+		renderError(w, r, http.StatusBadRequest, pageErrorMessage(err))
 	default:
 		renderInternalError(w, r, err)
 	}

@@ -15,6 +15,9 @@ Sources, their keys, and the signed events endpoint they publish through.
   422 only for a good one.
 - A key that belongs to another source answers 404, the same as one that doesn't
   exist, so callers can't probe for key IDs.
+- Signature verification goes through `SourceKeyRepository.ListBySource`, which
+  is unpaginated on purpose. Don't swap it for the paginated `List`, or only
+  the first page of keys would be checked.
 - The schema has no foreign keys, so deleting a source leaves its keys, their
   secrets, and its envelopes behind. A source recreated with the same explicit
   ID picks the old keys back up, and they're still active.

@@ -5,6 +5,7 @@ go 1.26.6
 require (
 	github.com/alexliesenfeld/health v0.8.1
 	github.com/cucumber/godog v0.16.0
+	github.com/exalynt/turn v0.0.0-20261029172916-9f8e283af5fe
 	github.com/go-chi/chi/v5 v5.3.2
 	github.com/go-chi/render v1.0.3
 	github.com/gofrs/uuid/v5 v5.5.1
