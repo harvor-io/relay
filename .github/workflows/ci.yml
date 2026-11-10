@@ -33,16 +33,6 @@ jobs:
           go-version-file: go.mod
       - run: go vet ./...
 
-  go-test:
-    name: Go test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - run: go test ./...
-
   go-fmt:
     name: Go fmt
     runs-on: ubuntu-latest
@@ -68,58 +58,37 @@ jobs:
         with:
           version: v2.9.0
 
-  e2e:
-    name: E2E (Playwright)
+  e2e-test:
+    name: End-to-end tests
     runs-on: ubuntu-latest
-    services:
-      rabbitmq:
-        image: rabbitmq:4.3-management
-        ports:
-          - 5672:5672
-        options: >-
-          --health-cmd "rabbitmq-diagnostics -q check_port_connectivity"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Start relay
-        run: |
-          go run ./cmd/relay serve &
-          echo $! > relay.pid
-        env:
-          DATABASE_URL: file:${{ runner.temp }}/relay-e2e.db
-          # Test-only key; nothing encrypted with it outlives this job.
-          SECRETS_ENCRYPTION_KEY: PMR/hf5+zhUN5AMEnBHC3l+2n7jcms8f2EfpuFf9MvU=
-          LOG_FORMAT: text
-          # The rabbitmq service container publishes 5672 to the runner's
-          # localhost, matching this URI's default.
-          RABBITMQ_URI: amqp://guest:guest@localhost:5672/
-      - name: Wait for relay to be ready
-        run: |
-          for i in $(seq 1 60); do
-            if curl -sf http://localhost:8080/api/v1/healthz > /dev/null; then
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "relay did not become ready in time" >&2
-          exit 1
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
           cache: npm
-          cache-dependency-path: e2e/package-lock.json
+      # The example override publishes RabbitMQ on localhost:5672, where the
+      # app's default RABBITMQ_URI looks. Only RabbitMQ is started: Playwright
+      # builds and starts the app itself (see playwright.config.ts).
+      - run: docker compose -f compose.yml -f compose.override.example.yml up -d --wait rabbitmq
       - run: npm ci
-        working-directory: e2e
-      - run: npm test
-        working-directory: e2e
-      - name: Stop relay
-        if: always()
-        run: kill "$(cat relay.pid)" 2>/dev/null || true
+      # API tests only, so no browsers are installed.
+      - run: npx playwright test tests/e2e
+
+  acceptance-test:
+    name: Acceptance tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # Nothing to start: the step definitions run Relay's services against a
+      # SQLite database of each scenario's own, with the eventbus mocked.
+      - run: go test -tags acceptance -run '^TestAcceptance$' ./...
 
   docker-build:
     name: Docker build

@@ -3,7 +3,7 @@
   "private": true,
   "description": "Black-box API tests that exercise the built Relay binary over HTTP",
   "scripts": {
-    "test": "playwright test"
+    "test:e2e": "playwright test tests/e2e"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

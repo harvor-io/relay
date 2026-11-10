@@ -12,6 +12,8 @@ import (
 	"github.com/harvor-io/relay/internal/models"
 )
 
+//go:generate moq -out bus_mock.go . Bus
+
 // Bus is the interface Relay uses to talk to the underlying eventbus,
 // regardless of which broker backs it.
 type Bus interface {

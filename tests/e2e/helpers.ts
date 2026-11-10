@@ -97,3 +97,20 @@ export async function createSourceKey(
 export function signSourceEventBody(secret: string, body: string): string {
   return createHmac("sha256", secret).update(body).digest("hex");
 }
+
+export async function createDestination(
+  request: APIRequestContext,
+  overrides: Partial<{ name: string; description: string | null; config: unknown }> = {},
+): Promise<DestinationResource> {
+  const response = await request.post("destinations", {
+    data: {
+      name: overrides.name ?? `E2E Destination ${randomUUID()}`,
+      description: overrides.description ?? null,
+      config: overrides.config ?? { url: "https://example.com/webhook" },
+    },
+  });
+  if (response.status() !== 201) {
+    throw new Error(`createDestination: expected 201, got ${response.status()}: ${await response.text()}`);
+  }
+  return response.json();
+}

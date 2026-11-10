@@ -22,6 +22,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full layout. In short:
 | `internal/models/` | Core domain entities (`Source`, `Destination`, `Envelope`) |
 | `internal/database/` | Connection setup and the `goose` migration runner |
 | `static/docs/` | OpenAPI spec, embedded into the binary |
+| `tests/e2e/` | Playwright end-to-end tests, one endpoint's happy path each |
+| `tests/acceptance/` | Gherkin acceptance tests (`features/`) and their godog step definitions |
 | `docs/product/` | Capabilities (with stability levels and known gaps), flows, domain rules and concepts |
 | `docs/engineering/` | System and feature architecture docs: tradeoffs, gotchas, technical gaps |
 

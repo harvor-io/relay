@@ -40,6 +40,17 @@ relay.db
 relay.db-shm
 relay.db-wal
 
+# Node tooling for the end-to-end tests and docs lint
+node_modules/
+npm-debug.log*
+
+# Playwright output, and snapshots from the Playwright MCP server
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+.playwright-mcp/
+
 # Editor/IDE
 # .idea/
 # .vscode/

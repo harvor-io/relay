@@ -1,4 +1,4 @@
-.PHONY: help build up down nuke logs run fix fmt lint vet test check coverage coverage-html e2e-install e2e
+.PHONY: help build up down nuke logs run fix fmt lint vet check test e2e-test acceptance-test
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -41,20 +41,10 @@ check: fix fmt vet lint ## Everything CI checks, locally
 
 ## --- Tests ---
 
-test: ## Run tests
-	go test ./...
+test: acceptance-test ## Run the tests that need nothing else running
 
-coverage: ## Coverage with a per-function summary
-	go test ./... -coverprofile=coverage.out
-	go tool cover -func=coverage.out
+e2e-test: ## Run the Playwright end-to-end tests (needs RabbitMQ; starts Relay unless it's already running)
+	npx playwright test tests/e2e
 
-coverage-html: coverage ## Open the coverage report in a browser
-	go tool cover -html=coverage.out
-
-## --- E2E ---
-
-e2e-install: ## Install e2e test dependencies
-	cd e2e && npm install
-
-e2e: ## Run black-box Playwright tests against a server you already started (make up / make run)
-	cd e2e && npm test
+acceptance-test: ## Run the acceptance tests
+	go test -tags acceptance -run '^TestAcceptance$$' ./...

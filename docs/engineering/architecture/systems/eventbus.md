@@ -50,8 +50,9 @@ None of the consuming side exists yet.
   them: an accepted event exists only in the envelope store.
 - The AMQP connection is opened once at startup and never re-established. If it
   drops, every publish fails until the process restarts.
-- `relay serve` fails to start if RabbitMQ isn't reachable, and so does CI's
-  e2e job without its RabbitMQ service.
+- `relay serve` fails to start if RabbitMQ isn't reachable, so the end-to-end
+  tests need it running. The acceptance tests don't: they use the generated
+  `bus.BusMock` instead.
 - The message body is a wire format that consumers will depend on. Change
   `envelopeMessage` deliberately, not as a side effect of changing
   `models.Envelope`.
@@ -64,6 +65,9 @@ None of the consuming side exists yet.
   serve refuses anything else. **Until:** not decided.
 
 ## Changing it
+
+**Changing the `Bus` interface:** run `go generate ./internal/bus/` to
+regenerate `BusMock`, or the acceptance tests stop compiling.
 
 **Adding an eventbus driver:** implement `bus.Bus` in a new package under
 `internal/bus/`, with an idempotent `Setup`, and select it by `EVENTBUS_DRIVER`

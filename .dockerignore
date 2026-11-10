@@ -1,2 +1,5 @@
-# Black-box Playwright tests: not needed to build or run the image.
-e2e/
+# Tests and their Node tooling: not needed to build or run the image.
+tests/
+node_modules/
+test-results/
+playwright-report/

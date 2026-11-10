@@ -27,6 +27,7 @@ something, see the [engineering docs](docs/engineering/README.md).
   for the containerized workflow)
 - [golangci-lint](https://golangci-lint.run/welcome/install/) v2 (optional,
   for linting locally)
+- [Node.js](https://nodejs.org/) (for the end-to-end tests; run `npm ci` once)
 
 ## Project layout
 
@@ -46,7 +47,8 @@ the HTTP API.
 | [internal/database/migrations/](internal/database/migrations/) | SQL migration files, embedded with `embed.FS`, one sub-directory per engine |
 | [internal/repositories/](internal/repositories/) | Persistence interfaces and their SQLite implementations |
 | [static/](static/) | OpenAPI spec, embedded into the binary with `embed.FS` |
-| [e2e/](e2e/) | Black-box Playwright tests that exercise the built binary over HTTP |
+| [tests/e2e/](tests/e2e/) | Black-box Playwright tests: one endpoint's happy path each, over HTTP |
+| [tests/acceptance/](tests/acceptance/) | Business rules in Gherkin (`features/`), checked with godog |
 
 ### Configuration
 
@@ -123,42 +125,53 @@ bundling step — edit the YAML and restart.
 
 ## Tests and checks
 
-Run the tests:
+Relay is at Alpha, so it has the two kinds of test Alpha calls for:
+
+- **End-to-end tests** in [tests/e2e/](tests/e2e/): Playwright, black box, one
+  endpoint's happy path per test, called over HTTP.
+- **Acceptance tests** in [tests/acceptance/](tests/acceptance/): the business
+  rules in the [product docs](docs/product/README.md), written in Gherkin in
+  `features/` and checked with [godog](https://github.com/cucumber/godog). The
+  `.feature` files are the specification, so a scenario changes only when the
+  rule it states does.
+
+Unit and integration tests start at Beta.
+
+Run the acceptance tests. They need nothing else running: each scenario gets
+its own SQLite database, and the eventbus is mocked.
 
 ```sh
-make test
+make acceptance-test   # also: make test
 ```
 
-Run everything CI enforces (`go fix`, `go fmt`, `go vet`, `golangci-lint`):
+Run the end-to-end tests. They need RabbitMQ on `localhost:5672`, which the
+example override publishes. Playwright builds and starts Relay itself, or uses
+one already running on port 8080 (`make up`, `make run`):
+
+```sh
+docker compose -f compose.yml -f compose.override.example.yml up -d --wait rabbitmq
+make e2e-test
+```
+
+Point the suite at a different instance with `BASE_URL`:
+
+```sh
+BASE_URL=http://localhost:9090/api/v1/ npx playwright test tests/e2e
+```
+
+Run everything else CI enforces (`go fix`, `go fmt`, `go vet`,
+`golangci-lint`):
 
 ```sh
 make check
 ```
 
 CI additionally runs `go build ./...` and a Docker image build. Please make
-sure `make test` and `make check` pass before opening a pull request.
+sure the tests and `make check` pass before opening a pull request.
 
-### Black-box (Playwright) tests
-
-[e2e/](e2e/) holds high-level tests that speak plain HTTP to a running Relay
-server, exercising the happy path of each endpoint end to end. They don't
-start a server themselves — start one first (`make up` or `make run`), then
-point the suite at it. They need Node.js:
-
-```sh
-make up           # or: make run
-make e2e-install  # once, or whenever e2e/package.json changes
-make e2e          # defaults to http://localhost:8080/api/v1
-```
-
-Point the suite at a different instance with `BASE_URL`:
-
-```sh
-BASE_URL=http://localhost:9090/api/v1/ npm --prefix e2e test
-```
-
-Add a spec alongside the existing ones in [e2e/tests/](e2e/tests/) when a new
-endpoint's happy path should be covered here too.
+Mocks are generated with [moq](https://github.com/matryer/moq) from
+`//go:generate` directives and committed. Regenerate them with
+`go generate ./...` after changing a mocked interface.
 
 ## Adding an endpoint
 
@@ -168,4 +181,4 @@ endpoint's happy path should be covered here too.
 2. Register it in [internal/commands/serve.go](internal/commands/serve.go).
 3. Document it under [static/docs/](static/docs/): add a path file and wire it
    into [static/docs/api.yaml](static/docs/api.yaml).
-4. Add a test alongside the handler.
+4. Add an end-to-end test of its happy path in [tests/e2e/](tests/e2e/).

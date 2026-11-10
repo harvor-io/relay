@@ -9,7 +9,7 @@ deactivated source are refused.
 
 - **Kind:** Core
 - **Why:** so a producer can be paused without losing its keys or history.
-- **Acceptance test:** [source-events.spec.ts › 422 when the source is not active](../../../../e2e/tests/source-events.spec.ts)
+- **Acceptance test:** [events.feature › Only active sources accept events](../../../../tests/acceptance/features/events.feature)
 
 ## Events are signed by an active key
 
@@ -18,7 +18,7 @@ source's active keys. Any active key will do, so keys can be rotated without
 downtime.
 
 - **Kind:** Core
-- **Acceptance test:** [source-events.spec.ts › 401 when the signature does not match any active key](../../../../e2e/tests/source-events.spec.ts)
+- **Acceptance test:** [events.feature › Events are signed by an active key](../../../../tests/acceptance/features/events.feature)
 
 ## Accepted events never change
 
