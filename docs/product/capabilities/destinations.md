@@ -1,6 +1,6 @@
 # Destinations
 
-**Stability:** Alpha
+**Stability:** Prototype
 
 A team that consumes events registers a destination in Relay, saying where and
 how events should be delivered to it, without the producers knowing it exists.

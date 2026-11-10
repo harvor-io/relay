@@ -159,7 +159,8 @@ each with its reason, are in [.redocly.lint-ignore.yaml](.redocly.lint-ignore.ya
 
 ## Tests and checks
 
-Relay is at Alpha, so it has the two kinds of test Alpha calls for:
+Relay's capabilities are at Alpha, apart from Destinations at Prototype, so it
+has the two kinds of test Alpha calls for:
 
 - **End-to-end tests** in [tests/e2e/](tests/e2e/): Playwright, black box, one
   endpoint's happy path per test, called over HTTP.

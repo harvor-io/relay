@@ -18,11 +18,13 @@ info:
     navigation: how stable its endpoints are on average.
 
 
-    Every endpoint is **Alpha** today. They work, but are still taking
+    Most endpoints are **Alpha** today. They work, but are still taking
     shape: expect frequent breaking changes, sometimes without notice, and
     bugs, even in the main workflow. Build on them to experiment, and keep a
-    fallback for anything you rely on. Endpoints move up a level as they
-    settle, and only GA endpoints promise no breaking changes within `/v1`.
+    fallback for anything you rely on. The Destinations endpoints are
+    **Prototype**: they register destinations, but nothing is delivered to
+    them yet. Endpoints move up a level as they settle, and only GA endpoints
+    promise no breaking changes within `/v1`.
   version: 0.1.0
   license:
     name: Apache 2.0

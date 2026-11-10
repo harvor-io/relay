@@ -9,7 +9,7 @@ parameters:
 
 get:
   operationId: getDestination
-  x-stability: alpha
+  x-stability: prototype
   summary: Get a destination
   description: Returns a single destination by ID.
   tags:
@@ -36,7 +36,7 @@ get:
 
 patch:
   operationId: updateDestination
-  x-stability: alpha
+  x-stability: prototype
   summary: Update a destination
   description: >-
     Updates the name and/or description of an existing destination. Fields
@@ -80,7 +80,7 @@ patch:
 
 delete:
   operationId: deleteDestination
-  x-stability: alpha
+  x-stability: prototype
   summary: Delete a destination
   description: Removes a destination by ID.
   tags:

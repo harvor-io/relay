@@ -1,6 +1,6 @@
 get:
   operationId: listDestinations
-  x-stability: alpha
+  x-stability: prototype
   summary: List destinations
   description: >-
     Returns a page of registered destinations, ordered by name. Follow the
@@ -32,7 +32,7 @@ get:
 
 post:
   operationId: createDestination
-  x-stability: alpha
+  x-stability: prototype
   summary: Register a destination
   description: >-
     Creates a new destination, which starts active. Surrounding whitespace is

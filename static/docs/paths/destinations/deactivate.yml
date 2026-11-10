@@ -9,11 +9,12 @@ parameters:
 
 post:
   operationId: deactivateDestination
-  x-stability: alpha
+  x-stability: prototype
   summary: Deactivate a destination
   description: >-
-    Marks the destination as inactive, so data is no longer forwarded to it,
-    without deleting it.
+    Marks the destination as inactive, without deleting it. Once delivery is
+    built, an inactive destination receives no events; nothing is delivered
+    to any destination yet.
   tags:
     - Destinations
   responses:

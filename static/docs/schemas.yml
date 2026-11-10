@@ -314,7 +314,9 @@ components:
           example: Batched delivery of order events to the data warehouse.
         is_active:
           type: boolean
-          description: Whether the destination currently accepts deliveries.
+          description: >-
+            Whether the destination is active. Once delivery is built, only
+            active destinations receive events.
         created_at:
           type: string
           format: date-time

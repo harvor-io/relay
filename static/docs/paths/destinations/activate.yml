@@ -9,9 +9,12 @@ parameters:
 
 post:
   operationId: activateDestination
-  x-stability: alpha
+  x-stability: prototype
   summary: Activate a destination
-  description: Marks the destination as active, so ingested data is forwarded to it.
+  description: >-
+    Marks the destination as active. Once delivery is built, an active
+    destination receives the events it subscribes to; nothing is delivered to
+    any destination yet.
   tags:
     - Destinations
   responses:
