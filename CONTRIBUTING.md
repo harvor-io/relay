@@ -15,9 +15,10 @@ Please read that first. **This document only covers the specifics of working
 in the Relay repository**: how the service is structured, how to run it
 locally, and how to run the checks CI enforces.
 
-For a conceptual overview of how Relay works — sources, destinations,
-subscriptions, and the event flow between them — see
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+For what Relay does — sources, destinations, subscriptions, and the rules
+between them — see the [product docs](docs/product/README.md). For how it's
+built, including the event flow, tradeoffs, and gotchas to read before changing
+something, see the [engineering docs](docs/engineering/README.md).
 
 ## Prerequisites
 

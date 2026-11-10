@@ -22,6 +22,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full layout. In short:
 | `internal/models/` | Core domain entities (`Source`, `Destination`, `Envelope`) |
 | `internal/database/` | Connection setup and the `goose` migration runner |
 | `static/docs/` | OpenAPI spec, embedded into the binary |
+| `docs/product/` | Capabilities (with stability levels and known gaps), flows, domain rules and concepts |
+| `docs/engineering/` | System and feature architecture docs: tradeoffs, gotchas, technical gaps |
 
 ## Conventions
 
