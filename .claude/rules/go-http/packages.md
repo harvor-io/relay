@@ -18,6 +18,7 @@ CLAUDE.md differs, follow the project.
 - `github.com/urfave/cli/v3`: the binary's commands
 - `github.com/pressly/goose/v3`: SQL migrations, embedded in the binary
 - `github.com/matryer/moq`: generated mocks for tests
+- `github.com/alexliesenfeld/health`: health check endpoints
 
 No ORMs. For anything else, prefer the standard library, and ask before adding
 a dependency.
