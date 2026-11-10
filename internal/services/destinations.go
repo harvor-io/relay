@@ -416,8 +416,9 @@ func (s *destinationService) resolveDestinationConfig(ctx context.Context, typ m
 // non-empty URL. When Auth is present, its Type must be "hmac" — the only
 // AuthType supported today — and its Config is resolved by
 // resolveHMACAuthConfig, which replaces the caller-supplied plaintext
-// secret with a reference to where it is stored. A webhook with no Auth is
-// returned unchanged.
+// secret with a reference to where it is stored. The result is always built
+// from the decoded fields, so nothing else the caller sent, such as a
+// misplaced secret, is stored or returned.
 func (s *destinationService) resolveWebhookConfig(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
 	if len(raw) == 0 {
 		return nil, ErrDestinationConfigRequired
@@ -431,7 +432,11 @@ func (s *destinationService) resolveWebhookConfig(ctx context.Context, raw json.
 		return nil, ErrDestinationConfigURLRequired
 	}
 	if cfg.Auth == nil {
-		return raw, nil
+		resolved, err := json.Marshal(models.WebhookConfig{URL: cfg.URL})
+		if err != nil {
+			return nil, fmt.Errorf("services: marshal destination config: %w", err)
+		}
+		return resolved, nil
 	}
 	if cfg.Auth.Type != models.AuthTypeHMAC {
 		return nil, ErrDestinationAuthTypeInvalid
@@ -481,8 +486,10 @@ func (s *destinationService) resolveHMACAuthConfig(ctx context.Context, raw json
 		return nil, ErrDestinationConfigInvalid
 	}
 
-	secret := strings.TrimSpace(input.Secret)
-	if secret == "" {
+	// The secret is stored exactly as sent, since the consumer signs with
+	// it as they hold it; trimming only decides whether it's empty.
+	secret := input.Secret
+	if strings.TrimSpace(secret) == "" {
 		return nil, ErrDestinationHMACSecretRequired
 	}
 	if strings.TrimSpace(input.Algorithm) == "" ||
