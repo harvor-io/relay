@@ -22,10 +22,6 @@ const (
 	// signing template, using a secret held in the secrets store. It is
 	// currently the only supported AuthType.
 	AuthTypeHMAC AuthType = "hmac"
-
-	// Other authentication schemes are not supported yet.
-	// AuthTypeBearer AuthType = "bearer"
-	// AuthTypeAPIKey AuthType = "api_key"
 )
 
 // AuthConfig is a discriminated union: Type says how Config is interpreted.
@@ -57,15 +53,3 @@ type HMACAuthConfig struct {
 	// referenced by SigningTemplate.
 	TimestampHeader string `json:"timestamp_header"`
 }
-
-// Other AuthConfig.Config shapes are not supported yet.
-//
-// type BearerAuthConfig struct {
-// 	SecretID string `json:"secret_id"`
-// }
-//
-// type APIKeyAuthConfig struct {
-// 	SecretID string `json:"secret_id"`
-// 	Location string `json:"location"`
-// 	Name     string `json:"name"`
-// }
