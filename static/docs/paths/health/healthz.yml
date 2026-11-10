@@ -1,5 +1,6 @@
 get:
   operationId: getHealth
+  x-stability: alpha
   summary: Check service health
   description: Reports that the process can serve HTTP.
   tags:

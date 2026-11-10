@@ -9,6 +9,7 @@ parameters:
 
 get:
   operationId: getSource
+  x-stability: alpha
   summary: Get a source
   description: Returns a single source by ID.
   tags:
@@ -35,6 +36,7 @@ get:
 
 patch:
   operationId: updateSource
+  x-stability: alpha
   summary: Update a source
   description: >-
     Updates the name and/or description of an existing source. Fields left
@@ -78,6 +80,7 @@ patch:
 
 delete:
   operationId: deleteSource
+  x-stability: alpha
   summary: Delete a source
   description: Removes a source by ID.
   tags:

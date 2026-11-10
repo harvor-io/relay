@@ -27,7 +27,8 @@ something, see the [engineering docs](docs/engineering/README.md).
   for the containerized workflow)
 - [golangci-lint](https://golangci-lint.run/welcome/install/) v2 (optional,
   for linting locally)
-- [Node.js](https://nodejs.org/) (for the end-to-end tests; run `npm ci` once)
+- [Node.js](https://nodejs.org/) (for the end-to-end tests and the docs lint;
+  run `npm ci` once)
 
 ## Project layout
 
@@ -117,11 +118,35 @@ curl -i http://localhost:8080/api/v1/healthz
 
 ### API documentation
 
-OpenAPI documentation, rendered with
-[Stoplight Elements](https://stoplight.io/open-source/elements), is served at
-<http://localhost:8080/docs/api>. The spec source lives in
-[static/docs/](static/docs/) and is embedded into the binary, so there is no
-bundling step — edit the YAML and restart.
+OpenAPI documentation, rendered with [Scalar](https://scalar.com), is served
+at <http://localhost:8080/docs/api>. The spec source lives in
+[static/docs/](static/docs/) and is embedded into the binary. Relay bundles it
+into one document when it starts, so edit the YAML and restart.
+
+| Route | What it serves |
+| --- | --- |
+| `GET /docs/api` | The spec rendered with Scalar, with a stability mark on each endpoint below GA and a maturity ring on each tag. |
+| `GET /docs/openapi.yaml` | The spec bundled into one document: what the docs page renders. Each operation's `x-stability` becomes an `x-badges` badge here. |
+| `GET /docs/*` | The raw spec files, starting at `/docs/api.yaml`. |
+
+Every operation states its
+[stability level](https://readme.exalynt.com/how-it-works/stability-levels)
+in an `x-stability` field: `prototype`, `alpha`, `beta`, or `ga`. Relay won't
+start if an operation is missing one or names an unknown level. Keep each
+operation's level in step with its capability's level in
+[docs/product/capabilities/](docs/product/capabilities/).
+[stability-marks.js](static/docs/stability-marks.js) and
+[stability-marks.css](static/docs/stability-marks.css) draw the marks and
+rings. They're copied from Exalynt's API docs, so change them there first.
+
+Lint the spec with Redocly, which CI also runs:
+
+```sh
+make docs-lint
+```
+
+The rules are in [redocly.yaml](redocly.yaml), and the deliberate exceptions,
+each with its reason, are in [.redocly.lint-ignore.yaml](.redocly.lint-ignore.yaml).
 
 ## Tests and checks
 
@@ -159,8 +184,8 @@ Point the suite at a different instance with `BASE_URL`:
 BASE_URL=http://localhost:9090/api/v1/ npx playwright test tests/e2e
 ```
 
-Run everything else CI enforces (`go fix`, `go fmt`, `go vet`,
-`golangci-lint`):
+Run everything else CI enforces (`go fix`, `go fmt`, `go vet`, `golangci-lint`,
+and the Redocly docs lint):
 
 ```sh
 make check
@@ -179,6 +204,7 @@ Mocks are generated with [moq](https://github.com/matryer/moq) from
    existing pattern (a `*Handler` type with a `RegisterRoutes(chi.Router)`
    method).
 2. Register it in [internal/commands/serve.go](internal/commands/serve.go).
-3. Document it under [static/docs/](static/docs/): add a path file and wire it
-   into [static/docs/api.yaml](static/docs/api.yaml).
+3. Document it under [static/docs/](static/docs/): add a path file, give each
+   operation an `x-stability` level, and wire it into
+   [static/docs/api.yaml](static/docs/api.yaml).
 4. Add an end-to-end test of its happy path in [tests/e2e/](tests/e2e/).

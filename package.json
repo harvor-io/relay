@@ -3,10 +3,12 @@
   "private": true,
   "description": "Black-box API tests that exercise the built Relay binary over HTTP",
   "scripts": {
-    "test:e2e": "playwright test tests/e2e"
+    "test:e2e": "playwright test tests/e2e",
+    "lint:docs": "redocly lint"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
+    "@redocly/cli": "^2.71.0",
     "@types/node": "24.13.4"
   }
 }

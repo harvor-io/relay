@@ -1,0 +1,267 @@
+/*
+ * Stability marks and maturity rings on the docs page, drawn like the design
+ * package's StabilityMark, MaturityRing, and their popovers (design:
+ * src/components/stability/ and src/components/maturity/), so they look the
+ * same here as everywhere else. stability-marks.js sets each one's
+ * --stability-* colors from its level, and Scalar's own --scalar-* colors
+ * stand in for the theme's palette roles: divider, paper, and secondary text.
+ *
+ * Scalar marks its theme with .light-mode or .dark-mode on the body; with
+ * neither, the mark follows prefers-color-scheme.
+ */
+
+.stability-mark,
+.stability-details,
+.maturity-glyph {
+  --stability-color: var(--stability-light);
+}
+
+/* The Track and the level's name, in the level's color. Text, not a badge. */
+.stability-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 0.86em;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+  color: var(--stability-color);
+  border-radius: 3px;
+  cursor: help;
+}
+
+.stability-mark:focus-visible {
+  outline: 2px solid var(--scalar-color-accent);
+  outline-offset: 2px;
+}
+
+/* A short mark after an operation's name in the navigation, level with its
+   first line, as Scalar sets the method beside it. */
+[class~="group/button-label"] + .stability-mark {
+  align-self: flex-start;
+  height: 1rem;
+  margin-left: 8px;
+}
+
+/* Four cells, one per level from Prototype to GA, lit up to the level. */
+.stability-track {
+  display: inline-flex;
+  flex: none;
+  gap: 0.0833em;
+}
+
+.stability-cell {
+  width: 0.3333em;
+  height: 0.3333em;
+  border-radius: 0.0833em;
+  background: var(--scalar-border-color);
+}
+
+.stability-cell.lit {
+  background: currentColor;
+}
+
+/* A tag's maturity, beside its name in the navigation. */
+.maturity-ring {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  margin-left: 8px;
+  border-radius: 999px;
+  cursor: help;
+}
+
+/* Four quarter arcs, filled as far as the maturity reaches into each. */
+.maturity-glyph {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  color: var(--stability-color);
+}
+
+.maturity-disc {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.maturity-disc svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+
+.maturity-track {
+  stroke: var(--scalar-border-color);
+}
+
+.maturity-figure {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.maturity-disc .maturity-figure {
+  letter-spacing: -0.02em;
+}
+
+/* The popover a mark or a ring opens on hover, focus, or tap. */
+.stability-details {
+  position: fixed;
+  z-index: 1000;
+  box-sizing: border-box;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  padding: 14px 16px;
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: left;
+  color: var(--scalar-color-1);
+  background: var(--scalar-background-1);
+  border: 1px solid var(--scalar-border-color);
+  border-radius: 10px;
+  box-shadow: var(--scalar-shadow-2);
+}
+
+.stability-details[hidden] {
+  display: none;
+}
+
+.stability-details-eyebrow {
+  font-size: 0.84em;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--scalar-color-2);
+}
+
+.stability-details-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  margin-top: 4px;
+  font-size: 1.12em;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--stability-color);
+}
+
+.stability-details-title span {
+  font-size: 0.89em;
+  font-weight: 500;
+}
+
+/* The four levels as the Track draws them, larger, each named underneath. */
+.stability-details-levels {
+  margin-top: 10px;
+  color: var(--stability-color);
+}
+
+.stability-details-boxes,
+.stability-details-names {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.stability-details-boxes span {
+  height: 14px;
+  border-radius: 3px;
+  background: var(--scalar-border-color);
+}
+
+.stability-details-boxes span.lit {
+  background: currentColor;
+}
+
+.stability-details-names {
+  margin-top: 6px;
+}
+
+.stability-details-names span {
+  font-size: 12px;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--scalar-color-2);
+}
+
+.stability-details-names span.current {
+  font-weight: 700;
+  color: inherit;
+}
+
+.stability-details-summary,
+.stability-details-statement {
+  margin-top: 12px;
+}
+
+.stability-details-statement strong {
+  font-weight: 600;
+}
+
+.stability-details-definition {
+  margin-top: 6px;
+}
+
+.maturity-details-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  line-height: 1.3;
+}
+
+.maturity-details-band {
+  font-size: 1.12em;
+  font-weight: 700;
+  color: var(--stability-color);
+}
+
+.maturity-details-basis {
+  color: var(--scalar-color-2);
+}
+
+.stability-details-about {
+  margin-top: 12px;
+  padding-top: 12px;
+  font-size: 0.92em;
+  color: var(--scalar-color-2);
+  border-top: 1px solid var(--scalar-border-color);
+}
+
+.stability-details-link {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 0.92em;
+  font-weight: 500;
+  color: var(--scalar-color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .stability-mark,
+  .stability-details,
+  .maturity-glyph {
+    --stability-color: var(--stability-dark);
+  }
+}
+
+.light-mode .stability-mark,
+.light-mode .stability-details,
+.light-mode .maturity-glyph {
+  --stability-color: var(--stability-light);
+}
+
+.dark-mode .stability-mark,
+.dark-mode .stability-details,
+.dark-mode .maturity-glyph {
+  --stability-color: var(--stability-dark);
+}

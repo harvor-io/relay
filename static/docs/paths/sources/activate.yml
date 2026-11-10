@@ -9,6 +9,7 @@ parameters:
 
 post:
   operationId: activateSource
+  x-stability: alpha
   summary: Activate a source
   description: Marks the source as active, so it can ingest events again.
   tags:

@@ -16,6 +16,7 @@ parameters:
 
 post:
   operationId: deactivateSourceKey
+  x-stability: alpha
   summary: Deactivate a source key
   description: >-
     Marks the key as inactive, so it is no longer accepted for verifying
@@ -28,16 +29,16 @@ post:
       content:
         application/json:
           schema:
-            $ref: "../../schemas.yml#/components/schemas/SourceKey"
+            $ref: "../../../schemas.yml#/components/schemas/SourceKey"
     "400":
       description: The source ID is not a valid UUID.
       content:
         application/json:
           schema:
-            $ref: "../../schemas.yml#/components/schemas/Error"
+            $ref: "../../../schemas.yml#/components/schemas/Error"
     "404":
       description: No such key exists for that source.
       content:
         application/json:
           schema:
-            $ref: "../../schemas.yml#/components/schemas/Error"
+            $ref: "../../../schemas.yml#/components/schemas/Error"

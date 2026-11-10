@@ -1,0 +1,15 @@
+# Lints the OpenAPI spec the docs are built from: `npx redocly lint`.
+apis:
+  main:
+    root: static/docs/api.yaml
+
+extends:
+  - recommended
+
+rules:
+  # The management endpoints have no authentication yet, and
+  # POST /sources/{id}/events authenticates with its X-Relay-Signature
+  # header, documented as a parameter.
+  security-defined: off
+  # The only server listed is local development.
+  no-server-example.com: off

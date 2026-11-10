@@ -1,0 +1,22 @@
+# This file instructs Redocly's linter to ignore the rules contained for specific parts of your API.
+# See https://redocly.com/docs/cli/ for more information.
+# The health probe is public and takes no input, so it has no 4XX response.
+static/docs/paths/health/healthz.yml:
+  operation-4xx-response:
+    - '#/get/responses'
+# Listing sources and destinations takes no input, so neither has a 4XX
+# response.
+static/docs/paths/sources/sources.yml:
+  operation-4xx-response:
+    - '#/get/responses'
+static/docs/paths/destinations/destinations.yml:
+  operation-4xx-response:
+    - '#/get/responses'
+# A config's shape depends on its type, and each has one type so far, so each
+# oneOf lists one schema.
+static/docs/schemas.yml:
+  no-illogical-composition-keywords:
+    - '#/components/schemas/Destination/properties/config/oneOf'
+    - '#/components/schemas/AuthConfig/properties/config/oneOf'
+    - '#/components/schemas/NewDestination/properties/config/oneOf'
+    - '#/components/schemas/NewAuthConfig/properties/config/oneOf'

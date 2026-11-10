@@ -18,6 +18,7 @@ parameters:
 
 post:
   operationId: createSourceEvent
+  x-stability: alpha
   summary: Submit an event to a source
   description: >-
     Accepts an event on behalf of the source and stores it as an envelope for

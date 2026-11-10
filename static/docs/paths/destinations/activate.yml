@@ -9,6 +9,7 @@ parameters:
 
 post:
   operationId: activateDestination
+  x-stability: alpha
   summary: Activate a destination
   description: Marks the destination as active, so ingested data is forwarded to it.
   tags:

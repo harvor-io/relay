@@ -58,6 +58,19 @@ jobs:
         with:
           version: v2.9.0
 
+  docs-lint:
+    name: API docs lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Lints static/docs with redocly.yaml and .redocly.lint-ignore.yaml.
+      - run: npx redocly lint
+
   e2e-test:
     name: End-to-end tests
     runs-on: ubuntu-latest

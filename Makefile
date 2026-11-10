@@ -1,4 +1,4 @@
-.PHONY: help build up down nuke logs run fix fmt lint vet check test e2e-test acceptance-test
+.PHONY: help build up down nuke logs run fix fmt lint vet docs-lint check test e2e-test acceptance-test
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -37,7 +37,10 @@ lint:
 vet:
 	go vet ./...
 
-check: fix fmt vet lint ## Everything CI checks, locally
+docs-lint: ## Lint the OpenAPI spec with Redocly
+	npx redocly lint
+
+check: fix fmt vet lint docs-lint ## Everything CI checks, locally
 
 ## --- Tests ---
 

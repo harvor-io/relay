@@ -9,6 +9,7 @@ parameters:
 
 post:
   operationId: deactivateSource
+  x-stability: alpha
   summary: Deactivate a source
   description: >-
     Marks the source as inactive, so it can no longer ingest events, without

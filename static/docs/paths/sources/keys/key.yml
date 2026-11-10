@@ -16,6 +16,7 @@ parameters:
 
 get:
   operationId: getSourceKey
+  x-stability: alpha
   summary: Get a source key
   description: Returns a single key belonging to the source.
   tags:
@@ -26,22 +27,23 @@ get:
       content:
         application/json:
           schema:
-            $ref: "../../schemas.yml#/components/schemas/SourceKey"
+            $ref: "../../../schemas.yml#/components/schemas/SourceKey"
     "400":
       description: The source ID is not a valid UUID.
       content:
         application/json:
           schema:
-            $ref: "../../schemas.yml#/components/schemas/Error"
+            $ref: "../../../schemas.yml#/components/schemas/Error"
     "404":
       description: No such key exists for that source.
       content:
         application/json:
           schema:
-            $ref: "../../schemas.yml#/components/schemas/Error"
+            $ref: "../../../schemas.yml#/components/schemas/Error"
 
 delete:
   operationId: deleteSourceKey
+  x-stability: alpha
   summary: Delete a source key
   description: Removes a key and its underlying secret.
   tags:
@@ -54,10 +56,10 @@ delete:
       content:
         application/json:
           schema:
-            $ref: "../../schemas.yml#/components/schemas/Error"
+            $ref: "../../../schemas.yml#/components/schemas/Error"
     "404":
       description: No such key exists for that source.
       content:
         application/json:
           schema:
-            $ref: "../../schemas.yml#/components/schemas/Error"
+            $ref: "../../../schemas.yml#/components/schemas/Error"

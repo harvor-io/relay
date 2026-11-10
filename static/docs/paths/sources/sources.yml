@@ -1,5 +1,6 @@
 get:
   operationId: listSources
+  x-stability: alpha
   summary: List sources
   description: Returns every registered source, ordered by name.
   tags:
@@ -16,6 +17,7 @@ get:
 
 post:
   operationId: createSource
+  x-stability: alpha
   summary: Register a source
   description: >-
     Creates a new source. Surrounding whitespace is trimmed from every field;

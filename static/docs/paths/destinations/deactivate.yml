@@ -9,6 +9,7 @@ parameters:
 
 post:
   operationId: deactivateDestination
+  x-stability: alpha
   summary: Deactivate a destination
   description: >-
     Marks the destination as inactive, so data is no longer forwarded to it,

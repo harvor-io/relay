@@ -12,6 +12,7 @@ require (
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/tursodatabase/libsql-client-go v0.0.0-20260528064733-9d5d30a29a60
 	github.com/urfave/cli/v3 v3.11.0
+	go.yaml.in/yaml/v3 v3.0.5
 	modernc.org/sqlite v1.58.0
 )
 
