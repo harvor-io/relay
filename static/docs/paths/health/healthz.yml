@@ -1,16 +1,26 @@
 get:
   operationId: getHealth
   x-stability: alpha
-  summary: Check service health
-  description: Reports that the process can serve HTTP.
+  summary: Check health
+  description: >-
+    Reports the process's servers, their dependencies, and the external
+    providers they use, for people and monitoring rather than probes. Relay
+    uses no external providers yet, so today this reports what `/readyz`
+    does. Results are cached for a second.
   tags:
     - Health
-  # Public: infrastructure probes reach this without a token.
+  # Public: people and monitoring reach this without a token.
   security: []
   responses:
     "200":
-      description: The service is healthy.
+      description: Everything checked is up.
       content:
         application/json:
           schema:
-            $ref: "../../schemas.yml#/components/schemas/HealthStatus"
+            $ref: "../../schemas.yml#/components/schemas/Health"
+    "503":
+      description: Something checked is down.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Health"

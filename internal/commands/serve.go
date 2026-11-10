@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -127,15 +128,36 @@ func ServeCommand() *cli.Command {
 
 			sourceEventAuth := middleware.HMACAuth(sourceService, sourceKeyService)
 
+			// The health checks: the one server this process runs, down once
+			// it starts draining, and each dependency it can't serve without.
+			health := handlers.NewHealthHandler(logger)
+			var stopped atomic.Bool
+			health.AddServer("http", func(context.Context) error {
+				if stopped.Load() {
+					return errors.New("stopped serving")
+				}
+				return nil
+			})
+			health.AddDependency("database", cfg.DatabaseDriver, db.PingContext)
+			health.AddDependency("secrets", cfg.Secrets.Driver, secretsDB.PingContext)
+			health.AddDependency("eventbus", rabbitmq.DriverName, func(context.Context) error {
+				if amqpConn.IsClosed() {
+					return errors.New("rabbitmq: connection closed")
+				}
+				return nil
+			})
+			health.Start()
+
 			r := chi.NewRouter()
 			r.Use(middleware.RequestID)
 			r.Use(middleware.RequestLogger(logger))
 			r.Use(chimiddleware.Recoverer)
 
 			r.Route("/api/v1", func(api chi.Router) {
-				// Health stays public so infrastructure probes (Docker,
-				// load balancers) can reach it without a token.
-				handlers.NewHealthHandler().RegisterRoutes(api)
+				// The health checks are public, with no authentication, so
+				// probes (Docker, Kubernetes, load balancers) reach them
+				// without a token.
+				health.RegisterRoutes(api)
 				handlers.NewSourceHandler(sourceService, sourceEventAuth).RegisterRoutes(api)
 				handlers.NewSourceKeyHandler(sourceKeyService).RegisterRoutes(api)
 				handlers.NewDestinationHandler(destinationService).RegisterRoutes(api)
@@ -177,6 +199,7 @@ func ServeCommand() *cli.Command {
 				logger.Info("shutdown signal received, draining connections",
 					"timeout", shutdownTimeout,
 				)
+				stopped.Store(true)
 				shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 				defer cancel()
 				if err := srv.Shutdown(shutdownCtx); err != nil {

@@ -165,6 +165,18 @@ make run     # runs `relay serve` on http://localhost:8080
 curl -i http://localhost:8080/api/v1/healthz
 ```
 
+Three public endpoints, under `/api/v1`, report Relay's health:
+
+| Endpoint | Reports | Point at it |
+| --- | --- | --- |
+| `GET /livez` | The HTTP server | The liveness probe |
+| `GET /readyz` | The HTTP server, the database, the secret store, and the eventbus | The readiness probe, load balancer health checks, and Compose's `healthcheck` |
+| `GET /healthz` | Everything `/readyz` does, plus any external providers (none yet) | People and monitoring |
+
+Each responds `200` when every check is up and `503` when any is down, with the
+overall `status` and each check under `details`. A failed check says only
+`unhealthy`; the cause is in the logs.
+
 OpenAPI documentation is served at <http://localhost:8080/docs/api>.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full local development guide — the Docker Compose workflow, project layout, configuration, tests, and the checks CI enforces.

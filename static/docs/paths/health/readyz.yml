@@ -1,0 +1,27 @@
+get:
+  operationId: getReadiness
+  x-stability: alpha
+  summary: Check readiness
+  description: >-
+    Reports whether the process's servers and the dependencies they can't
+    serve without (the database, the secret store, and the eventbus) are up.
+    Point the readiness probe and load balancer health checks here, so the
+    process leaves rotation while any is down. Results are cached for a
+    second.
+  tags:
+    - Health
+  # Public: infrastructure probes reach this without a token.
+  security: []
+  responses:
+    "200":
+      description: Every server and dependency is up.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Health"
+    "503":
+      description: A server or dependency is down.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Health"

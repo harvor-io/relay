@@ -49,7 +49,9 @@ None of the consuming side exists yet.
   `relay_ingest`, RabbitMQ silently drops every message. Today that's all of
   them: an accepted event exists only in the envelope store.
 - The AMQP connection is opened once at startup and never re-established. If it
-  drops, every publish fails until the process restarts.
+  drops, every publish fails until the process restarts. `/readyz` reports the
+  `eventbus` check down, so the process leaves rotation, but `/livez` stays up,
+  so a liveness probe won't restart it: someone has to.
 - `relay serve` fails to start if RabbitMQ isn't reachable, so the end-to-end
   tests need it running. The acceptance tests don't: they use the generated
   `bus.BusMock` instead.

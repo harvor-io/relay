@@ -1,0 +1,25 @@
+get:
+  operationId: getLiveness
+  x-stability: alpha
+  summary: Check liveness
+  description: >-
+    Reports whether the process's servers are serving. Dependencies aren't
+    checked, so a dependency outage never gets the process restarted. Point
+    the liveness probe here. Results are cached for a second.
+  tags:
+    - Health
+  # Public: infrastructure probes reach this without a token.
+  security: []
+  responses:
+    "200":
+      description: Every server is up.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Health"
+    "503":
+      description: A server is down, such as while it drains on shutdown.
+      content:
+        application/json:
+          schema:
+            $ref: "../../schemas.yml#/components/schemas/Health"

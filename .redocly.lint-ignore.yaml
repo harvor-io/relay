@@ -1,6 +1,13 @@
 # This file instructs Redocly's linter to ignore the rules contained for specific parts of your API.
 # See https://redocly.com/docs/cli/ for more information.
-# The health probe is public and takes no input, so it has no 4XX response.
+# The health checks are public and take no input, so they have no 4XX
+# response.
+static/docs/paths/health/livez.yml:
+  operation-4xx-response:
+    - '#/get/responses'
+static/docs/paths/health/readyz.yml:
+  operation-4xx-response:
+    - '#/get/responses'
 static/docs/paths/health/healthz.yml:
   operation-4xx-response:
     - '#/get/responses'

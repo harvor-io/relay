@@ -25,7 +25,7 @@ export default defineConfig({
   },
   webServer: {
     command: "go build -o bin/relay ./cmd/relay && bin/relay serve",
-    url: new URL("healthz", BASE_URL).toString(),
+    url: new URL("readyz", BASE_URL).toString(),
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
     env: {

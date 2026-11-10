@@ -116,6 +116,11 @@ stack with `make down`.
 curl -i http://localhost:8080/api/v1/healthz
 ```
 
+`/livez` checks only the HTTP server, and `/readyz` adds the database, the
+secret store, and RabbitMQ; see the [README](README.md#running-locally). A
+failed check responds only `unhealthy`, and logs the cause at Warn with the
+check's name.
+
 ### API documentation
 
 OpenAPI documentation, rendered with [Scalar](https://scalar.com), is served

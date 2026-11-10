@@ -40,6 +40,10 @@ tags:
   - name: Destinations
     description: Targets that relay forwards ingested data to.
 paths:
+  /livez:
+    $ref: "./paths/health/livez.yml"
+  /readyz:
+    $ref: "./paths/health/readyz.yml"
   /healthz:
     $ref: "./paths/health/healthz.yml"
   /sources:

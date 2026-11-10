@@ -1,14 +1,76 @@
 components:
   schemas:
-    HealthStatus:
+    Health:
+      type: object
+      description: >-
+        The overall status and one entry per check. The same shape is
+        returned with a 200 and a 503.
+      required:
+        - status
+        - details
+      properties:
+        status:
+          $ref: "#/components/schemas/HealthStatus"
+        details:
+          type: object
+          description: Each check's result, keyed by the check's name.
+          additionalProperties:
+            $ref: "#/components/schemas/HealthCheck"
+          example:
+            http:
+              status: up
+              timestamp: "2026-11-10T20:00:00Z"
+            database:
+              status: up
+              provider: sqlite
+              timestamp: "2026-11-10T20:00:00Z"
+              latency_ms: 1
+            secrets:
+              status: up
+              provider: sqlite
+              timestamp: "2026-11-10T20:00:00Z"
+              latency_ms: 1
+            eventbus:
+              status: down
+              provider: rabbitmq
+              timestamp: "2026-11-10T20:00:00Z"
+              latency_ms: 0
+              error: unhealthy
+
+    HealthCheck:
       type: object
       required:
         - status
       properties:
         status:
+          $ref: "#/components/schemas/HealthStatus"
+        provider:
           type: string
-          description: Human-readable process status.
-          example: OK
+          description: Who provides a dependency, such as `sqlite`, `libsql`, or `rabbitmq`. Absent for servers.
+          example: sqlite
+        timestamp:
+          type: string
+          format: date-time
+          description: When the check last ran.
+          example: "2026-11-10T20:00:00Z"
+        latency_ms:
+          type: integer
+          description: How long a dependency's last check took, in milliseconds, whether it passed or failed. Absent for servers.
+          example: 1
+        error:
+          type: string
+          description: Present only when the check failed. Always `unhealthy`; the cause is logged, never returned.
+          example: unhealthy
+
+    HealthStatus:
+      type: string
+      enum:
+        - up
+        - down
+        - unknown
+      description: >-
+        `up` or `down`, or `unknown` until the check has run.
+      example: up
 
     Source:
       type: object
