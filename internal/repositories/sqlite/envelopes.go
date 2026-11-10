@@ -70,29 +70,6 @@ func (r *EnvelopeRepository) Get(ctx context.Context, id uuid.UUID) (*models.Env
 	return scanEnvelope(row)
 }
 
-// List returns every envelope, newest first.
-func (r *EnvelopeRepository) List(ctx context.Context) ([]models.Envelope, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT `+envelopeColumns+` FROM envelopes ORDER BY created_at DESC`)
-	if err != nil {
-		return nil, fmt.Errorf("sqlite: list envelopes: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var envelopes []models.Envelope
-	for rows.Next() {
-		envelope, err := scanEnvelope(rows)
-		if err != nil {
-			return nil, err
-		}
-		envelopes = append(envelopes, *envelope)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("sqlite: iterate envelopes: %w", err)
-	}
-	return envelopes, nil
-}
-
 func scanEnvelope(s sqlitedb.Scanner) (*models.Envelope, error) {
 	var (
 		envelope  models.Envelope

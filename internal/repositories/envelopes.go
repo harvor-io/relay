@@ -19,7 +19,4 @@ type EnvelopeRepository interface {
 
 	// Get returns the Envelope with the given ID, or ErrNotFound.
 	Get(ctx context.Context, id uuid.UUID) (*models.Envelope, error)
-
-	// List returns every Envelope, newest first.
-	List(ctx context.Context) ([]models.Envelope, error)
 }
