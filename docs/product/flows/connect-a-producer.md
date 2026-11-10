@@ -3,7 +3,7 @@
 A producer team gets one of its services publishing events to Relay, and keeps
 its keys fresh afterwards.
 
-- **People:** Producer team, producer service
+- **People:** Producer team ([Maya Okafor, producer engineer](../personas/producer-engineer.md)), producer service
 - **Starts when:** a service has events other teams should be able to receive
 - **Done when:** the service's signed events are accepted under its source
 
