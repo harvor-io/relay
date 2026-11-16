@@ -21,8 +21,12 @@ CLAUDE.md differs, follow the project.
 ## When
 
 Add the health endpoints once any feature in the project reaches Alpha (see
-the `stability` skill), or sooner if the app is deployed somewhere that probes
-it.
+the `stability` skill).
+
+At Prototype, add them when something needs them, such as a platform or
+Compose `healthcheck` that probes the app, or a demo environment that has to
+know the app is up. Add only the endpoints that something calls, often just
+`/livez` or `/readyz`, built the same way as below. The rest follow at Alpha.
 
 ## Three endpoints
 
